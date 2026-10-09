@@ -4,8 +4,8 @@ import time
 from urllib.request import Request, urlopen
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
 from app.shared.secrets import get_secret
+from app.shared.store import IncidentStore
 from app.slack_bot.blocks import action_result_blocks, blocks_response, error_blocks, oncall_blocks
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ def _transition_response(
         return blocks_response(error_blocks("Missing incident ID", "Provide an incident ID."), ephemeral=True)
     blocks = action_result_blocks(title, incident_id, message)
     try:
-        IncidentStore(config.dynamodb_table_name).update_incident(incident_id, updates)
+        IncidentStore(config).update_incident(incident_id, updates)
         _post_channel(config, channel, blocks)
     except Exception as error:
         logger.warning("Incident transition failed for %s: %s", incident_id, error)

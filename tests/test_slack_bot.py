@@ -80,11 +80,16 @@ def test_interactions_missing_payload_returns_bad_request(aws_mocks, context):
     assert result == {"statusCode": 400, "body": "Missing payload"}
 
 
-def test_interactions_approve_action_writes_audit(aws_mocks, dynamodb_table, context):
+def test_interactions_approve_action_writes_audit(aws_mocks, seed_incidents, context):
+    db = seed_incidents({"incident_id": "inc-1", "status": "awaiting_approval"})
     payload = {
         "type": "block_actions",
         "user": {"username": "alice"},
-        "actions": [{"action_id": "approve_remediation", "value": "inc-1|isolate"}],
+        "message": {
+            "ts": "1700000000.1",
+            "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "isolate"}}],
+        },
+        "actions": [{"action_id": "approve_remediation", "value": "inc-1|task-token"}],
     }
     body = "payload=" + quote(json.dumps(payload))
 
@@ -94,12 +99,21 @@ def test_interactions_approve_action_writes_audit(aws_mocks, dynamodb_table, con
     response_body = json.loads(result["body"])
     assert "blocks" in response_body
     assert any("approved" in json.dumps(block) for block in response_body["blocks"])
-    item = dynamodb_table.put_item.call_args.kwargs["Item"]
-    assert item["incident_id"] == "inc-1"
-    assert item["decision"] == "approved"
+    audit = list(db["approval_audit"].find({"incident_id": "inc-1"}))
+    assert [a["decision"] for a in audit] == ["approve"]
+    assert audit[0]["by"] == "alice"
+    assert db["incidents"].find_one({"_id": "inc-1"})["status"] == "approved"
+    sfn = aws_mocks["clients"]["stepfunctions"]
+    assert sfn.send_task_success.call_count == 1
+
+    handler.lambda_handler(_signed_event("/slack/interactions", body), context)
+
+    assert sfn.send_task_success.call_count == 1
+    assert db["approval_audit"].count_documents({"incident_id": "inc-1"}) == 1
 
 
-def test_interactions_reject_action_writes_audit(aws_mocks, dynamodb_table, context):
+def test_interactions_reject_action_writes_audit(aws_mocks, seed_incidents, context):
+    db = seed_incidents({"incident_id": "inc-2", "status": "awaiting_approval"})
     payload = {
         "type": "block_actions",
         "user": {"username": "bob"},
@@ -111,7 +125,8 @@ def test_interactions_reject_action_writes_audit(aws_mocks, dynamodb_table, cont
 
     response_body = json.loads(result["body"])
     assert any("rejected" in json.dumps(block) for block in response_body["blocks"])
-    assert dynamodb_table.put_item.call_args.kwargs["Item"]["decision"] == "rejected"
+    assert db["approval_audit"].find_one({"incident_id": "inc-2"})["decision"] == "deny"
+    assert db["incidents"].find_one({"_id": "inc-2"})["status"] == "denied"
 
 
 def test_commands_status_returns_blocks(aws_mocks, context):

@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
 from app.shared.slack_notifier import slack_api_call
+from app.shared.store import IncidentStore
 from app.slack_bot.blocks import (
     error_blocks,
     incident_detail_blocks,
@@ -73,7 +73,7 @@ def open_report_modal(trigger_id: str, config: Config, channel_id: str = "", use
 
 def open_incident_detail_modal(trigger_id: str, config: Config, incident_id: str) -> dict[str, Any]:
     try:
-        incident = IncidentStore(config.dynamodb_table_name).get_incident(incident_id)
+        incident = IncidentStore(config).get_incident(incident_id)
         blocks = _modal_safe_blocks(incident_detail_blocks(incident))
     except Exception as error:
         logger.warning("Failed to open incident detail modal for %s: %s", incident_id, error)
@@ -156,7 +156,7 @@ def _filtered_incident_blocks(config: Config, view: dict[str, Any]) -> list[Bloc
     start_date = _date_value(view, "start_date", "start")
     end_date = _date_value(view, "end_date", "end")
     try:
-        incidents = IncidentStore(config.dynamodb_table_name).recent(limit=100)
+        incidents = IncidentStore(config).recent(limit=100)
     except Exception as error:
         logger.warning("Failed to filter incidents: %s", error)
         return error_blocks("Incident filter unavailable", "DynamoDB is unavailable. Try again later.")
@@ -190,7 +190,7 @@ def _ack_incident_from_view(config: Config, view: dict[str, Any], user_id: str) 
     if not incident_id:
         return error_blocks("Acknowledge failed", "Provide an incident ID.")
     try:
-        IncidentStore(config.dynamodb_table_name).update_incident(
+        IncidentStore(config).update_incident(
             incident_id,
             {
                 "status": "acknowledged",

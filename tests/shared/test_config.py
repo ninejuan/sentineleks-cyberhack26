@@ -41,7 +41,9 @@ def test_config_reads_optional_env_values():
 
     assert config.opensearch_endpoint == "https://opensearch.test"
     assert config.knowledge_base_id == "kb-test"
-    assert config.dynamodb_table_name == "test-incidents"
+    assert config.store_enabled is True
+    assert config.bedrock_smart_model_id == "us.openai.gpt-5.6-terra"
+    assert config.mongodb_secret_id == "seks/mongodb/uri"
     assert config.mcp_server_url == "http://mcp.internal/mcp"
     assert config.mcp_auth_secret_id == "test/mcp/auth-token"
     assert config.mcp_server_url_secret_id == "test/mcp/server-url"

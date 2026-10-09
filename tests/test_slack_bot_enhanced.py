@@ -2,8 +2,8 @@ import json
 from urllib.parse import quote_plus
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
 from app.shared.slack_notifier import SlackNotifier, slack_api_call
+from app.shared.store import IncidentStore
 from app.slack_bot.commands import _dispatch_seks
 from app.slack_bot.events import handle_events
 from app.slack_bot.home import build_home_view
@@ -14,9 +14,9 @@ def _body(result):
     return json.loads(result["body"])
 
 
-def test_incident_detail_command_shows_security_context(aws_mocks, dynamodb_table):
-    dynamodb_table.get_item.return_value = {
-        "Item": {
+def test_incident_detail_command_shows_security_context(aws_mocks, seed_incidents):
+    seed_incidents(
+        {
             "incident_id": "inc-1",
             "severity": "P1",
             "status": "detected",
@@ -29,7 +29,7 @@ def test_incident_detail_command_shows_security_context(aws_mocks, dynamodb_tabl
             "execution_log": [{"tool": "checkpoint_pod", "status": "success", "target": "pod/default/shell"}],
             "forensics": {"checkpoint_pod": "s3://bucket/inc-1/checkpoint.tar"},
         }
-    }
+    )
 
     result = _dispatch_seks("incident inc-1", Config())
 
@@ -41,20 +41,19 @@ def test_incident_detail_command_shows_security_context(aws_mocks, dynamodb_tabl
     assert "s3://bucket/inc-1/checkpoint.tar" in blocks_text
 
 
-def test_incidents_filters_by_status_and_severity(aws_mocks, dynamodb_table):
-    dynamodb_table.scan.return_value = {
-        "Items": [{"incident_id": "inc-2", "severity": "P2", "status": "open", "created_at": "2026-05-06T01:00:00Z"}]
-    }
+def test_incidents_filters_by_status_and_severity(aws_mocks, seed_incidents):
+    seed_incidents({"incident_id": "inc-2", "severity": "P2", "status": "open", "created_at": "2026-05-06T01:00:00Z"})
 
     status_result = _dispatch_seks("incidents open", Config())
     severity_result = _dispatch_seks("incidents P2", Config())
 
     assert "Open Incidents" in json.dumps(_body(status_result)["blocks"])
     assert "P2 Incidents" in json.dumps(_body(severity_result)["blocks"])
-    assert dynamodb_table.scan.call_args.kwargs["ExpressionAttributeValues"][":value"] == "P2"
+    assert "inc-2" in json.dumps(_body(severity_result)["blocks"])
 
 
-def test_oncall_ack_assign_resolve_commands_update_incident(aws_mocks, dynamodb_table):
+def test_oncall_ack_assign_resolve_commands_update_incident(aws_mocks, seed_incidents):
+    db = seed_incidents({"incident_id": "inc-1", "status": "detected"})
     ack = _dispatch_seks("ack inc-1", Config())
     assign = _dispatch_seks("assign inc-1 <@U2>", Config())
     resolve = _dispatch_seks("resolve inc-1 contained", Config())
@@ -62,19 +61,20 @@ def test_oncall_ack_assign_resolve_commands_update_incident(aws_mocks, dynamodb_
     assert "Incident Acknowledged" in json.dumps(_body(ack)["blocks"])
     assert "Incident Assigned" in json.dumps(_body(assign)["blocks"])
     assert "contained" in json.dumps(_body(resolve)["blocks"])
-    assert dynamodb_table.update_item.call_count == 3
+    doc = db["incidents"].find_one({"_id": "inc-1"})
+    assert doc["status"] == "resolved"
 
 
-def test_ioc_evidence_timeline_and_guide_commands(aws_mocks, dynamodb_table, s3_client):
-    dynamodb_table.get_item.return_value = {
-        "Item": {
+def test_ioc_evidence_timeline_and_guide_commands(aws_mocks, seed_incidents, s3_client):
+    seed_incidents(
+        {
             "incident_id": "inc-3",
             "created_at": "2026-05-06T01:00:00Z",
             "acknowledged_at": "2026-05-06T01:02:00Z",
             "raw_indicators": "8.8.8.8 bad.example cafebabecafebabecafebabecafebabe",
             "evidence": "s3://bucket/inc-3/flows.json",
         }
-    }
+    )
 
     ioc = _dispatch_seks("ioc inc-3", Config())
     evidence = _dispatch_seks("evidence inc-3", Config())
@@ -88,25 +88,23 @@ def test_ioc_evidence_timeline_and_guide_commands(aws_mocks, dynamodb_table, s3_
     assert "Capture Hubble flows" in json.dumps(_body(guide)["blocks"])
 
 
-def test_report_daily_uses_store_stats(aws_mocks, dynamodb_table):
-    dynamodb_table.scan.return_value = {
-        "Items": [
-            {
-                "incident_id": "a",
-                "severity": "P1",
-                "status": "resolved",
-                "created_at": "2999-01-01T00:00:00Z",
-                "mitre": "T1496",
-            },
-            {
-                "incident_id": "b",
-                "severity": "P3",
-                "status": "detected",
-                "created_at": "2999-01-01T00:00:00Z",
-                "mitre": "T1611",
-            },
-        ]
-    }
+def test_report_daily_uses_store_stats(aws_mocks, seed_incidents):
+    seed_incidents(
+        {
+            "incident_id": "a",
+            "severity": "P1",
+            "status": "resolved",
+            "created_at": "2999-01-01T00:00:00Z",
+            "mitre": "T1496",
+        },
+        {
+            "incident_id": "b",
+            "severity": "P3",
+            "status": "detected",
+            "created_at": "2999-01-01T00:00:00Z",
+            "mitre": "T1611",
+        },
+    )
 
     result = _dispatch_seks("report daily", Config())
 
@@ -137,27 +135,29 @@ def test_slack_notifier_enhanced_alert_contains_actions_and_escalation():
     assert "escalate_incident" in text
 
 
-def test_incident_store_new_scan_methods(aws_mocks, dynamodb_table):
-    dynamodb_table.scan.return_value = {"Items": [{"incident_id": "inc", "severity": "P1", "status": "open"}]}
-    store = IncidentStore("incidents")
+def test_incident_store_new_scan_methods(aws_mocks, seed_incidents):
+    from datetime import UTC, datetime
+
+    seed_incidents(
+        {"incident_id": "inc", "severity": "P1", "status": "open", "created_at": datetime.now(tz=UTC).isoformat()}
+    )
+    store = IncidentStore()
 
     assert store.get_by_status("open")[0]["incident_id"] == "inc"
     assert store.get_by_severity("P1")[0]["incident_id"] == "inc"
     assert store.get_stats(days=7)["total"] == 1
 
 
-def test_home_view_shows_soc_dashboard(aws_mocks, dynamodb_table):
-    dynamodb_table.scan.return_value = {
-        "Items": [
-            {
-                "incident_id": "inc-home",
-                "severity": "P1",
-                "status": "open",
-                "title": "Container escape",
-                "created_at": "2999-01-01T00:00:00Z",
-            }
-        ]
-    }
+def test_home_view_shows_soc_dashboard(aws_mocks, seed_incidents):
+    seed_incidents(
+        {
+            "incident_id": "inc-home",
+            "severity": "P1",
+            "status": "open",
+            "title": "Container escape",
+            "created_at": "2999-01-01T00:00:00Z",
+        }
+    )
 
     view = build_home_view(Config())
 
@@ -212,18 +212,16 @@ def test_home_buttons_open_modals_and_post_oncall(monkeypatch):
     assert calls[2][0] == "chat.postEphemeral"
 
 
-def test_view_submission_filters_incidents_to_ephemeral(monkeypatch, aws_mocks, dynamodb_table):
+def test_view_submission_filters_incidents_to_ephemeral(monkeypatch, aws_mocks, seed_incidents):
     calls = []
     monkeypatch.setattr(
         "app.slack_bot.modals.slack_api_call",
         lambda method, payload, config: calls.append((method, payload)) or {"ok": True},
     )
-    dynamodb_table.scan.return_value = {
-        "Items": [
-            {"incident_id": "inc-p1", "severity": "P1", "status": "open", "created_at": "2026-05-06T01:00:00Z"},
-            {"incident_id": "inc-p3", "severity": "P3", "status": "closed", "created_at": "2026-05-06T01:00:00Z"},
-        ]
-    }
+    seed_incidents(
+        {"incident_id": "inc-p1", "severity": "P1", "status": "open", "created_at": "2026-05-06T01:00:00Z"},
+        {"incident_id": "inc-p3", "severity": "P3", "status": "closed", "created_at": "2026-05-06T01:00:00Z"},
+    )
     payload = {
         "type": "view_submission",
         "user": {"id": "U1"},

@@ -3,8 +3,8 @@ import os
 from typing import Any
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
 from app.shared.slack_notifier import slack_api_call
+from app.shared.store import IncidentStore
 from app.slack_bot.blocks import severity_emoji, slack_date
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def _slack_api_call(method: str, payload: dict[str, Any], config: Config) -> dic
 
 def _load_home_data(config: Config) -> tuple[list[dict[str, Any]], dict[str, Any], str | None]:
     try:
-        store = IncidentStore(config.dynamodb_table_name)
+        store = IncidentStore(config)
         incidents = _active_incidents(store.recent(limit=25))[:5]
         stats = store.get_stats()
         return incidents, stats, None

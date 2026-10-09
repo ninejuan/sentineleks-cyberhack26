@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
+from app.shared.store import IncidentStore
 from app.slack_bot.blocks import blocks_response, build_stats_from_incidents, error_blocks, report_summary_blocks
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def report_response(config: Config, period: str) -> dict:
 
 def build_report(config: Config, period: str = "daily") -> dict:
     days = 7 if period == "weekly" else 1
-    store = IncidentStore(config.dynamodb_table_name)
+    store = IncidentStore(config)
     try:
         stats = store.get_stats(days=days)
         incidents = store.recent(limit=100)

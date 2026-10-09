@@ -17,7 +17,6 @@ def mock_env(monkeypatch):
     monkeypatch.setenv("OPENSEARCH_ENDPOINT", "https://opensearch.test")
     monkeypatch.setenv("KNOWLEDGE_BASE_ID", "kb-test")
     monkeypatch.setenv("STATE_MACHINE_ARN", "arn:aws:states:us-west-2:123456789012:stateMachine:test")
-    monkeypatch.setenv("DYNAMODB_TABLE_NAME", "test-incidents")
     monkeypatch.setenv("MCP_SERVER_URL", "http://mcp.internal/mcp")
     monkeypatch.setenv("MCP_AUTH_SECRET_ID", "test/mcp/auth-token")
     monkeypatch.setenv("MCP_SERVER_URL_SECRET_ID", "test/mcp/server-url")
@@ -47,6 +46,30 @@ def bedrock_runtime_client():
         "usage": {},
     }
     return client
+
+
+@pytest.fixture
+def mongo_db():
+    import mongomock
+
+    from app.shared import store
+
+    database = mongomock.MongoClient()["seks-test"]
+    store.ensure_indexes(database)
+    store.set_database(database)
+    yield database
+    store._db_cache.clear()
+
+
+@pytest.fixture
+def seed_incidents(mongo_db):
+    def seed(*incidents):
+        for incident in incidents:
+            doc = {"_id": incident["incident_id"], **incident}
+            mongo_db["incidents"].replace_one({"_id": doc["_id"]}, doc, upsert=True)
+        return mongo_db
+
+    return seed
 
 
 @pytest.fixture
@@ -125,7 +148,7 @@ def boto3_resources(monkeypatch, dynamodb_resource):
 
 
 @pytest.fixture
-def aws_mocks(boto3_clients, boto3_resources):
+def aws_mocks(boto3_clients, boto3_resources, mongo_db):
     return {"clients": boto3_clients, "resources": boto3_resources}
 
 

@@ -6,7 +6,7 @@ from urllib.parse import parse_qs
 import boto3
 
 from app.shared.config import Config
-from app.shared.dynamodb import IncidentStore
+from app.shared.store import IncidentStore
 from app.slack_bot.blocks import (
     blocks_response,
     error_blocks,
@@ -86,7 +86,7 @@ def _dispatch_seks(text: str, config: Config) -> dict:  # noqa: PLR0911, PLR0912
 
 def _incidents_response(config: Config, filter_text: str = "") -> dict:
     try:
-        store = IncidentStore(config.dynamodb_table_name)
+        store = IncidentStore(config)
         filter_value = filter_text.strip()
         if filter_value.upper() in {"P1", "P2", "P3", "P4"}:
             incidents = store.get_by_severity(filter_value, limit=10)
@@ -160,7 +160,7 @@ def _get_incident(config: Config, incident_id: str) -> tuple[dict | None, str | 
     if not incident_id:
         return None, "Provide an incident ID."
     try:
-        incident = IncidentStore(config.dynamodb_table_name).get_incident(incident_id)
+        incident = IncidentStore(config).get_incident(incident_id)
     except Exception as error:
         logger.warning("Failed to fetch incident %s: %s", incident_id, error)
         return None, "DynamoDB is unavailable. Try again later."
@@ -207,7 +207,7 @@ def _remediate_response(config: Config, incident_id: str) -> dict:
         )
 
     try:
-        store = IncidentStore(config.dynamodb_table_name)
+        store = IncidentStore(config)
         incident = store.get_incident(incident_id)
     except Exception:
         return blocks_response(
@@ -272,9 +272,9 @@ def _invoke_remediation_directly(config: Config, incident_id: str, incident: dic
             InvocationType="Event",
             Payload=payload.encode(),
         )
-        from app.shared.dynamodb import IncidentStore
+        from app.shared.store import IncidentStore
 
-        IncidentStore(config.dynamodb_table_name).update_incident(incident_id, {"status": "remediation_triggered"})
+        IncidentStore(config).update_incident(incident_id, {"status": "remediation_triggered"})
         return blocks_response(
             [
                 {

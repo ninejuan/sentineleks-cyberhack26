@@ -12,7 +12,9 @@ class Config:
     opensearch_endpoint: str = field(default_factory=lambda: os.environ.get("OPENSEARCH_ENDPOINT", ""))
     knowledge_base_id: str = field(default_factory=lambda: os.environ.get("KNOWLEDGE_BASE_ID", ""))
     state_machine_arn: str = field(default_factory=lambda: os.environ.get("STATE_MACHINE_ARN", ""))
-    dynamodb_table_name: str = field(default_factory=lambda: os.environ.get("DYNAMODB_TABLE_NAME", ""))
+    store_enabled: bool = field(
+        default_factory=lambda: os.environ.get("INCIDENT_STORE_ENABLED", "true").lower() == "true"
+    )
     eks_cluster_name: str = field(default_factory=lambda: os.environ.get("EKS_CLUSTER_NAME", "seks-demo"))
     mcp_server_url: str = field(default_factory=lambda: os.environ.get("MCP_SERVER_URL", ""))
     mcp_server_url_secret_id: str = field(
@@ -26,3 +28,25 @@ class Config:
     alerts_channel_p1: str = field(default_factory=lambda: os.environ.get("ALERTS_CHANNEL_P1", ""))
     alerts_channel_p2: str = field(default_factory=lambda: os.environ.get("ALERTS_CHANNEL_P2", ""))
     forensics_bucket: str = field(default_factory=lambda: os.environ.get("FORENSICS_BUCKET", ""))
+    bedrock_fast_model_id: str = field(
+        default_factory=lambda: os.environ.get("BEDROCK_FAST_MODEL_ID", "us.openai.gpt-5.6-luna")
+    )
+    bedrock_smart_model_id: str = field(
+        default_factory=lambda: os.environ.get("BEDROCK_SMART_MODEL_ID", "us.openai.gpt-5.6-terra")
+    )
+    akash_base_url: str = field(default_factory=lambda: os.environ.get("AKASH_BASE_URL", "https://api.akashml.com/v1"))
+    akash_model_id: str = field(
+        default_factory=lambda: os.environ.get("AKASH_MODEL_ID", "meta-llama/Llama-3.3-70B-Instruct")
+    )
+    akash_secret_id: str = field(default_factory=lambda: os.environ.get("AKASH_SECRET_ID", "seks/akashml/api-key"))
+    senso_base_url: str = field(
+        default_factory=lambda: os.environ.get("SENSO_BASE_URL", "https://apiv2.senso.ai/api/v1")
+    )
+    senso_secret_id: str = field(default_factory=lambda: os.environ.get("SENSO_SECRET_ID", "seks/senso/api-key"))
+    clickhouse_secret_id: str = field(
+        default_factory=lambda: os.environ.get("CLICKHOUSE_SECRET_ID", "seks/clickhouse/credentials")
+    )
+    mongodb_secret_id: str = field(default_factory=lambda: os.environ.get("MONGODB_SECRET_ID", "seks/mongodb/uri"))
+    mongodb_database: str = field(default_factory=lambda: os.environ.get("MONGODB_DATABASE", "seks"))
+    tenant_id: str = field(default_factory=lambda: os.environ.get("TENANT_ID", "seks-demo"))
+    slack_incident_channel: str = field(default_factory=lambda: os.environ.get("SLACK_INCIDENT_CHANNEL", ""))

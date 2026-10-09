@@ -123,7 +123,9 @@ def _handle_approval_action(payload: dict[str, Any], config: Config) -> dict[str
     if response_url:
         _post_response_url(response_url, response_blocks)
 
-    _process_approval(config, incident_id, task_token, user, action_id, approved)
+    message_ts = str(payload.get("message", {}).get("ts") or payload.get("container", {}).get("message_ts") or "")
+    action_summary = _action_summary_from_message(payload.get("message", {}))
+    _process_approval(config, incident_id, task_token, user, approved, message_ts, action_summary)
 
     return {
         "statusCode": 200,
@@ -179,22 +181,47 @@ def _post_response_url(response_url: str, blocks: list[Block]) -> None:
         logger.warning("Failed to post to response_url")
 
 
-def _process_approval(
-    config: Config, incident_id: str, task_token: str, user: str, action_id: str, approved: bool
-) -> None:
-    try:
-        dynamodb: Any = boto3.resource("dynamodb")
-        table = dynamodb.Table(f"{config.project}-approval-audit")
+def _action_summary_from_message(message: dict[str, Any]) -> str:
+    blocks = message.get("blocks") or next(iter(message.get("attachments") or []), {}).get("blocks", [])
+    texts = [b.get("text", {}).get("text", "") for b in blocks if b.get("type") == "section"]
+    return "\n".join(t for t in texts if t)[:3000]
 
-        audit_record: dict[str, Any] = {
-            "approval_id": f"{incident_id}-{user}-{int(time.time())}",
-            "incident_id": incident_id,
-            "action": action_id,
-            "user": user,
-            "timestamp": int(time.time()),
-            "decision": "approved" if approved else "rejected",
-        }
-        table.put_item(Item=audit_record)
+
+def _process_approval(  # noqa: PLR0917
+    config: Config,
+    incident_id: str,
+    task_token: str,
+    user: str,
+    approved: bool,
+    message_ts: str,
+    action_summary: str,
+) -> bool:
+    """Record the decision and release the Step Functions token exactly once.
+
+    The conditional incident transition is the idempotency key: a duplicate click or Slack retry
+    finds the incident no longer in awaiting_approval and is dropped before touching Step Functions.
+    """
+    from app.shared.store import ApprovalAudit, IncidentStore
+
+    decision = "approve" if approved else "deny"
+    try:
+        won = IncidentStore(config).transition(
+            incident_id,
+            from_statuses=["awaiting_approval", "pending_approval"],
+            to_status="approved" if approved else "denied",
+            updates={"approved_by" if approved else "denied_by": user},
+        )
+        if not won:
+            logger.info("Duplicate approval ignored for %s by %s", incident_id, user)
+            return False
+
+        ApprovalAudit(config).record(
+            incident_id=incident_id,
+            decision=decision,
+            by=user,
+            action_summary=action_summary,
+            slack_message_ts=message_ts or f"no-ts-{int(time.time())}",
+        )
 
         if task_token:
             sfn = boto3.client("stepfunctions")
@@ -204,9 +231,11 @@ def _process_approval(
                 output=json.dumps({"decision": "approved" if approved else "rejected", decision_key: user}),
             )
 
-        logger.info("Approval processed: %s by %s for %s", action_id, user, incident_id)
+        logger.info("Approval processed: %s by %s for %s", decision, user, incident_id)
+        return True
     except Exception:
         logger.exception("Failed to process approval for %s", incident_id)
+        return False
 
 
 def _approval_response_blocks(incident_id: str, user: str, approved: bool) -> list[Block]:
