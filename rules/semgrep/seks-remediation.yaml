@@ -1,0 +1,109 @@
+rules:
+  - id: seks-isolation-empty-endpoint-selector
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      CiliumNetworkPolicy endpointSelector is empty, so it selects every pod in the namespace.
+      An AI-generated isolation policy must target only the compromised pod
+      (matchLabels security.incident/compromised=true). Response policy section 7.
+    metadata:
+      category: security
+      subcategory: [vuln]
+      cwe: ["CWE-284: Improper Access Control"]
+      seks_policy: response-policy#7
+    pattern-either:
+      - pattern: |
+          spec:
+            ...
+            endpointSelector: {}
+      - pattern: |
+          spec:
+            ...
+            endpointSelector:
+              matchLabels: {}
+
+  - id: seks-isolation-selector-not-compromised-label
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Isolation policy selects pods by '$KEY' in addition to / instead of the incident label
+      security.incident/compromised=true. App/workload labels isolate healthy replicas too, and labels the
+      pod does not carry (e.g. statefulset.kubernetes.io/pod-name on a Deployment pod) make the policy
+      select nothing, so isolation silently fails. Use only the incident label.
+    metadata:
+      category: security
+      cwe: ["CWE-284: Improper Access Control"]
+      seks_policy: response-policy#7
+    patterns:
+      - pattern-inside: |
+          kind: CiliumNetworkPolicy
+          ...
+      - pattern-inside: |
+          endpointSelector:
+            matchLabels:
+              ...
+      - pattern: "$KEY: $VALUE"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^(?!(security\.incident/compromised|endpointSelector|matchLabels)$).*
+
+  - id: seks-isolation-allows-world-egress
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Isolation policy still allows egress to the internet ($TARGET). A cryptominer or reverse shell keeps
+      its C2 / pool connection. Isolation must be deny-all.
+    metadata:
+      category: security
+      cwe: ["CWE-284: Improper Access Control"]
+      seks_policy: response-policy#7
+    pattern-either:
+      - pattern: |
+          egress:
+            - ...
+              toEntities:
+                - $TARGET
+      - pattern: |
+          egress:
+            - ...
+              toCIDR:
+                - "0.0.0.0/0"
+    metavariable-pattern:
+      metavariable: $TARGET
+      patterns:
+        - pattern-regex: (world|all)
+
+  - id: seks-protected-namespace-target
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Generated manifest targets protected namespace '$NS'. SEKS never takes automated action in
+      platform namespaces. Response policy section 4.
+    metadata:
+      category: security
+      seks_policy: response-policy#4
+    patterns:
+      - pattern: |
+          metadata:
+            ...
+            namespace: $NS
+      - metavariable-regex:
+          metavariable: $NS
+          regex: ^(kube-system|kube-public|kube-node-lease|seks|falco|tetragon|monitoring|external-secrets|cilium)$
+
+  - id: seks-privileged-workload
+    languages: [yaml]
+    severity: ERROR
+    message: Generated manifest requests $FIELD. No AI-generated manifest may escalate node access.
+    metadata:
+      category: security
+      cwe: ["CWE-250: Execution with Unnecessary Privileges"]
+      seks_policy: response-policy#7
+    pattern-either:
+      - pattern: "privileged: true"
+      - pattern: "hostPID: true"
+      - pattern: "hostNetwork: true"
+      - pattern: "hostIPC: true"
+    metavariable-pattern:
+      metavariable: $FIELD
+      pattern-regex: .*

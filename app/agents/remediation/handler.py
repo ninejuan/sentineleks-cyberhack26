@@ -267,12 +267,51 @@ def _forensic_precondition_met(execution_log: list, required: tuple = REQUIRED_F
 
 def lambda_handler(event: dict, context) -> dict:
     config = Config()
-    client = BedrockClient(model_id=config.bedrock_model_id, region=config.region)
+    summary = event.get("summary", {}).get("body", {})
+    incident_id = summary.get("incident_id") if isinstance(summary, dict) else None
+    gate = event.get("gate", {}).get("body")
+
+    if isinstance(gate, dict):
+        result = _execute_approved_plan(gate, incident_id)
+    else:
+        result = _llm_tool_loop(config, event, incident_id)
+
+    _update_incident_status(config, event, result)
+    return result
+
+
+def _execute_approved_plan(gate: dict, incident_id: str | None) -> dict:
+    """Execute exactly the plan the gate verified and the human approved. No LLM in the loop."""
+    from app.gate.verify import ALLOWED_AUTOMATED_TOOLS
+
+    if not gate.get("passed"):
+        return {
+            "status": "blocked_by_gate",
+            "execution_log": [{"type": "gate", "text": gate.get("reason", "gate did not pass")}],
+            "actions_taken": 0,
+        }
+    execution_log: list[dict] = []
+    for call in gate.get("approved_plan", []):
+        tool_name, tool_input = call.get("tool", ""), dict(call.get("args", {}))
+        if tool_name not in ALLOWED_AUTOMATED_TOOLS:
+            result = {"status": "blocked", "action": tool_name, "error": "not in automated whitelist"}
+        else:
+            result = _execute_tool(tool_name, tool_input, execution_log, incident_id=incident_id)
+        execution_log.append({"tool": tool_name, "input": tool_input, "result": result})
+    return {
+        "status": "completed",
+        "mode": "approved_plan",
+        "execution_log": execution_log,
+        "actions_taken": len(execution_log),
+    }
+
+
+def _llm_tool_loop(config: Config, event: dict, incident_id: str | None) -> dict:
+    client = BedrockClient(model_id=config.bedrock_model_id or config.bedrock_smart_model_id, region=config.region)
 
     summary = event.get("summary", {}).get("body", {})
     triage = event.get("triage", {}).get("body", {})
     solution = event.get("solution", {}).get("body", {})
-    incident_id = summary.get("incident_id") if isinstance(summary, dict) else None
 
     context_json = json.dumps(
         {"summary": summary, "triage": triage, "solution": solution},
@@ -330,20 +369,18 @@ def lambda_handler(event: dict, context) -> dict:
 
         messages.append({"role": "user", "content": tool_results})
 
-    result = {
+    return {
         "status": "completed",
+        "mode": "llm_tool_loop",
         "execution_log": execution_log,
         "actions_taken": len([e for e in execution_log if "tool" in e]),
     }
 
-    _update_incident_status(config, event, result)
-    return result
-
 
 def _update_incident_status(config: Config, event: dict, result: dict) -> None:
-    from app.shared.dynamodb import IncidentStore
+    from app.shared.store import IncidentStore
 
-    if not config.dynamodb_table_name:
+    if not config.store_enabled:
         return
 
     summary = event.get("summary", {}).get("body", {})
@@ -358,12 +395,13 @@ def _update_incident_status(config: Config, event: dict, result: dict) -> None:
         if isinstance(r, dict) and r.get("evidence_uri"):
             evidence_uris.append(r["evidence_uri"])
 
-    store = IncidentStore(table_name=config.dynamodb_table_name)
+    store = IncidentStore(config)
     store.update_incident(
         incident_id=incident_id,
         updates={
-            "status": "remediated",
-            "actions_taken": result.get("actions_taken", 0),
+            "status": "remediated" if result.get("status") == "completed" else result.get("status", "unknown"),
+            "actions_taken": [e["tool"] for e in execution_log if e.get("tool")],
+            "actions_count": result.get("actions_taken", 0),
             "remediation_status": result.get("status", "unknown"),
             "execution_log": execution_log,
             "evidence_uris": evidence_uris,

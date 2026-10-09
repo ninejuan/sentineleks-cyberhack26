@@ -325,12 +325,12 @@ def _update_incident(
     s3_uris: dict[str, str],
     parse_error: str | None,
 ) -> None:
-    from app.shared.dynamodb import IncidentStore
+    from app.shared.store import IncidentStore
 
-    if not config.dynamodb_table_name or incident_id == "adhoc":
+    if not config.store_enabled or incident_id == "adhoc":
         return
 
-    store = IncidentStore(table_name=config.dynamodb_table_name)
+    store = IncidentStore(config)
     store.update_incident(
         incident_id=incident_id,
         updates={
