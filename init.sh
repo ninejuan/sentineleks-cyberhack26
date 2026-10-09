@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT="atdr"
-REGION="ap-northeast-2"
+REGION="us-east-1"
 BUCKET_NAME="${PROJECT}-tfstate"
 
 echo "=== ATDR Terraform Backend Bootstrap ==="

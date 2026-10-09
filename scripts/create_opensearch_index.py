@@ -10,7 +10,7 @@ from requests_aws4auth import AWS4Auth
 def main() -> int:
     endpoint = os.environ["OPENSEARCH_ENDPOINT"]
     index_name = os.environ["OPENSEARCH_INDEX_NAME"]
-    region = os.environ.get("AWS_REGION", "ap-northeast-2")
+    region = os.environ.get("AWS_REGION", "us-east-1")
 
     session = boto3.Session(region_name=region)
     credentials = session.get_credentials().get_frozen_credentials()

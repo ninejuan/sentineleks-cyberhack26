@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class KnowledgeBaseClient:
-    def __init__(self, knowledge_base_id: str, region: str = "ap-northeast-2"):
+    def __init__(self, knowledge_base_id: str, region: str = "us-east-1"):
         self._client = boto3.client("bedrock-agent-runtime", region_name=region)
         self._kb_id = knowledge_base_id
 

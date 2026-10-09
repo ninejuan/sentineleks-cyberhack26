@@ -13,7 +13,7 @@ variable "project_name" {
 variable "region" {
   description = "AWS region"
   type        = string
-  default     = "ap-northeast-2"
+  default     = "us-east-1"
 }
 
 variable "endpoint_public_access_cidrs" {

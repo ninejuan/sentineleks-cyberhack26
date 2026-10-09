@@ -34,7 +34,7 @@ falco:
     - name: k8saudit-eks
       library_path: libk8saudit-eks.so
       init_config:
-        region: ap-northeast-2
+        region: us-east-1
         shift: 10
         polling_interval: 10
         use_async: false
@@ -54,7 +54,7 @@ falcosidekick:
   replicaCount: 1
   config:
     aws:
-      region: ap-northeast-2
+      region: us-east-1
       sns:
         topicarn: ""
         rawjson: false

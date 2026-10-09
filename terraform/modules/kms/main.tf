@@ -48,7 +48,7 @@ data "aws_iam_policy_document" "kms" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["sns.ap-northeast-2.amazonaws.com"]
+      values   = ["sns.${var.region}.amazonaws.com"]
     }
   }
 
@@ -70,7 +70,7 @@ data "aws_iam_policy_document" "kms" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["sqs.ap-northeast-2.amazonaws.com"]
+      values   = ["sqs.${var.region}.amazonaws.com"]
     }
   }
 }

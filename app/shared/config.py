@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class Config:
     project: str = field(default_factory=lambda: os.environ.get("PROJECT", "atdr"))
-    region: str = field(default_factory=lambda: os.environ.get("AWS_REGION", "ap-northeast-2"))
+    region: str = field(default_factory=lambda: os.environ.get("AWS_REGION", "us-east-1"))
     log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
     agent_type: str = field(default_factory=lambda: os.environ.get("AGENT_TYPE", ""))
     bedrock_model_id: str = field(default_factory=lambda: os.environ.get("BEDROCK_MODEL_ID", ""))

@@ -1,5 +1,5 @@
 TF_DIR       := terraform/envs/demo
-REGION       ?= $(shell cd $(TF_DIR) && terraform output -raw region 2>/dev/null || echo "ap-northeast-2")
+REGION       ?= $(shell cd $(TF_DIR) && terraform output -raw region 2>/dev/null || echo "us-east-1")
 CLUSTER_NAME ?= $(shell cd $(TF_DIR) && terraform output -raw eks_cluster_name 2>/dev/null || echo "atdr-demo")
 ENVIRONMENT  ?= $(shell grep -A3 'variable "environment"' $(TF_DIR)/variable.tf | grep default | sed 's/.*"\(.*\)".*/\1/')
 PROJECT      ?= $(shell cd $(TF_DIR) && terraform output -raw project_name 2>/dev/null || echo "$(CLUSTER_NAME)" | sed 's/-$(ENVIRONMENT)$$//')

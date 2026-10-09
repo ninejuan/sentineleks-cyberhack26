@@ -10,3 +10,7 @@ variable "lambda_role_arn" {
   type    = string
   default = ""
 }
+
+variable "region" {
+  type = string
+}

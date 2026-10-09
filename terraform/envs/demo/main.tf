@@ -26,6 +26,7 @@ module "kms" {
 
   project         = var.project_name
   account_id      = local.account_id
+  region          = var.region
   lambda_role_arn = module.iam.lambda_agent_role_arn
 }
 
@@ -42,7 +43,7 @@ module "vpc" {
 
   project            = var.project_name
   vpc_cidr           = "10.0.0.0/16"
-  availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
+  availability_zones = ["${var.region}a", "${var.region}b"]
   log_bucket_arn     = module.s3.logs_bucket_arn
 }
 

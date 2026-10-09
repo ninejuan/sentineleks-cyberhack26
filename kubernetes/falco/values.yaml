@@ -21,7 +21,7 @@ falcosidekick:
   config:
     aws:
       checkidentity: false
-      region: ap-northeast-2
+      region: us-east-1
       sns:
         topicarn: ""
         rawjson: false

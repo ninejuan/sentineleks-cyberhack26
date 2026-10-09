@@ -23,7 +23,7 @@ def test_config_uses_defaults_when_env_missing(monkeypatch):
     config = Config()
 
     assert config.project == "atdr"
-    assert config.region == "ap-northeast-2"
+    assert config.region == "us-east-1"
     assert config.log_level == "INFO"
     assert config.agent_type == ""
     assert config.bedrock_model_id == ""

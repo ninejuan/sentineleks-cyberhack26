@@ -12,7 +12,7 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "List of availability zones"
   type        = list(string)
-  default     = ["ap-northeast-2a", "ap-northeast-2c"]
+  default     = ["us-east-1a", "us-east-1b"]
 }
 
 variable "log_bucket_arn" {
