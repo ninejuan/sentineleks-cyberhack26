@@ -1,0 +1,5 @@
+environment  = "demo"
+project_name = "atdr"
+region       = "ap-northeast-2"
+
+endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict to team IPs in production

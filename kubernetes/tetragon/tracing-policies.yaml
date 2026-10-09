@@ -1,0 +1,92 @@
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: kill-compromised-outbound
+spec:
+  podSelector:
+    matchLabels:
+      security.incident/compromised: "true"
+  kprobes:
+    - call: tcp_connect
+      syscall: false
+      args:
+        - index: 0
+          type: sock
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: NotDAddr
+              values:
+                - "127.0.0.1"
+          matchActions:
+            - action: Sigkill
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: detect-privilege-escalation
+spec:
+  kprobes:
+    - call: __x64_sys_setuid
+      syscall: true
+      args:
+        - index: 0
+          type: int
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Equal
+              values:
+                - "0"
+          matchActions:
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: detect-sensitive-file-access
+spec:
+  kprobes:
+    - call: security_file_open
+      syscall: false
+      args:
+        - index: 0
+          type: file
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /etc/shadow
+                - /etc/gshadow
+          matchBinaries:
+            - operator: NotIn
+              values:
+                - /usr/bin/apt-get
+                - /usr/bin/dpkg
+                - /usr/bin/apt
+                - /usr/sbin/adduser
+                - /usr/sbin/useradd
+                - /usr/sbin/groupadd
+                - /usr/bin/chfn
+                - /usr/bin/chsh
+                - /usr/bin/passwd
+                - /sbin/apk
+                - /usr/bin/apk
+          matchActions:
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: detect-container-escape
+spec:
+  kprobes:
+    - call: __x64_sys_unshare
+      syscall: true
+      args:
+        - index: 0
+          type: int
+      selectors:
+        - matchActions:
+            - action: Post
