@@ -1,76 +1,104 @@
+"""Summary agent (plan: 이벤트[] -> {summary, affected:{ns, workload}}).
+
+Identity is system-owned: incident_id, namespace/workload/pod, rule_id and source come from the
+ingestor's normalized event, not from the model. The fast model only writes the human summary.
+"""
+
 import json
 import logging
 import os
+import uuid
+from datetime import UTC, datetime
 
-from app.shared.bedrock import BedrockClient
 from app.shared.config import Config
 from app.shared.json_extract import extract_json
+from app.shared.llm import LlmRouter, Role
+from app.shared.normalize import normalize
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security event summarizer for an EKS-based threat detection system (SEKS).
-Your job is to take raw security events from GuardDuty or Falco and produce a structured summary.
+SYSTEM_PROMPT = """You summarize one EKS runtime security event for an on-call engineer.
+Use only facts present in the event. Do not speculate, do not recommend actions.
 
-Output ONLY a valid JSON object with these fields (no markdown, no explanation, no text before or after):
-- incident_id: generated from source and current time (format: inc-YYYYMMDD-HHMMSS-SOURCE)
-- source: "guardduty" or "falco" (infer from event structure)
-- timestamp: ISO 8601 timestamp extracted from the event, or current time if not available
-- title: one-line description of the event
-- summary: 2-3 sentence description of what happened
-- affected_resources: list of affected pods, nodes, namespaces, or AWS resources
-- raw_indicators: list of IPs, domains, file paths, or process names involved
-- mitre_technique: MITRE ATT&CK technique ID if identifiable (e.g. T1071)
-
-Rules:
-- Output ONLY the JSON object. No markdown fences, no notes, no explanations.
-- Use real values from the event. Never use placeholder timestamps like 2024-01-01T00:00:00Z.
-- Be concise and factual. Do not speculate."""
+Output ONLY a JSON object:
+{"title": "<one line, <= 90 chars>",
+ "summary": "<2-3 sentences: what ran, where, what it contacted>",
+ "raw_indicators": ["<ips, domains, binaries, file paths seen in the event>"],
+ "mitre_technique": "<Txxxx if clearly implied by the event, else empty>"}"""
 
 
 def lambda_handler(event: dict, context) -> dict:
     config = Config()
-    client = BedrockClient(model_id=config.bedrock_model_id, region=config.region)
-
     raw_event = event.get("raw_event") or event
-    raw_json = json.dumps(raw_event, indent=2, ensure_ascii=False)
-
-    response_text = client.invoke(
-        system_prompt=SYSTEM_PROMPT,
-        user_message=f"Summarize this security event:\n\n{raw_json}",
-        max_tokens=2048,
+    normalized = event.get("normalized") or normalize(
+        raw_event, tenant_id=config.tenant_id, cluster=config.eks_cluster_name
     )
 
+    completion = LlmRouter(config).complete(
+        Role.SUMMARY,
+        SYSTEM_PROMPT,
+        "NORMALIZED:\n"
+        + json.dumps({k: v for k, v in normalized.items() if k != "raw_hash"}, ensure_ascii=False)
+        + "\n\nRAW EVENT:\n"
+        + json.dumps(raw_event, ensure_ascii=False, default=str)[:12000],
+        max_tokens=800,
+    )
     try:
-        summary = extract_json(response_text)
+        model_view = extract_json(completion.text)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse summary as JSON, wrapping as text")
-        summary = {"summary": response_text, "parse_error": True}
+        logger.warning("Summary model returned non-JSON; using raw text")
+        model_view = {"title": normalized.get("rule_id", "Security event"), "summary": completion.text[:600]}
 
-    summary["raw_event"] = raw_event
-
+    incident_id = _incident_id(normalized)
+    summary = {
+        "incident_id": incident_id,
+        "tenant_id": normalized["tenant_id"],
+        "source": normalized["source"],
+        "rule_id": normalized["rule_id"],
+        "timestamp": normalized["ts"],
+        "title": model_view.get("title") or normalized["rule_id"],
+        "summary": model_view.get("summary", ""),
+        "affected": {
+            "cluster": normalized["cluster"],
+            "namespace": normalized["namespace"],
+            "workload": normalized["workload"],
+            "pod": normalized["pod"],
+        },
+        "affected_resources": [r for r in (normalized["namespace"], normalized["workload"], normalized["pod"]) if r],
+        "raw_indicators": model_view.get("raw_indicators", []),
+        "mitre_technique": normalized["mitre_technique"] or model_view.get("mitre_technique", ""),
+        "process": normalized["process"],
+        "network": normalized["network"],
+        "raw_event": raw_event,
+        "model": {"provider": completion.provider, "model": completion.model, "latency_ms": completion.latency_ms},
+    }
     _store_incident(config, summary)
     return summary
 
 
+def _incident_id(normalized: dict) -> str:
+    stamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
+    return f"inc-{stamp}-{normalized.get('source') or 'unknown'}-{uuid.uuid4().hex[:6]}"
+
+
 def _store_incident(config: Config, summary: dict) -> None:
-    from app.shared.dynamodb import IncidentStore
-
-    if not config.dynamodb_table_name:
+    if not config.store_enabled:
         return
+    from app.shared.store import IncidentStore
 
-    store = IncidentStore(table_name=config.dynamodb_table_name)
-    incident_id = summary.get("incident_id", f"inc-{int(__import__('time').time())}")
-
-    store.put_incident(
-        incident_id=incident_id,
+    IncidentStore(config).put_incident(
+        incident_id=summary["incident_id"],
         data={
-            "source": summary.get("source", "unknown"),
-            "title": summary.get("title", ""),
-            "summary": summary.get("summary", ""),
+            "tenant_id": summary["tenant_id"],
+            "source": summary["source"],
+            "rule_id": summary["rule_id"],
+            "title": summary["title"],
+            "summary": summary["summary"],
             "status": "detected",
-            "mitre_technique": summary.get("mitre_technique", ""),
-            "affected_resources": summary.get("affected_resources", []),
-            "raw_indicators": summary.get("raw_indicators", []),
+            "mitre_technique": summary["mitre_technique"],
+            "affected": summary["affected"],
+            "affected_resources": summary["affected_resources"],
+            "raw_indicators": summary["raw_indicators"],
         },
     )

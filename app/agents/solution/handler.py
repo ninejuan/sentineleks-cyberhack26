@@ -1,103 +1,151 @@
+"""Solution agent (plan: Akash 대형 추론 + Senso 근거 강제).
+
+1. Ask Senso, scoped to the verified knowledge manifest, for the official procedure.
+2. No citations -> degraded: no recommendation, a human decides.
+3. Otherwise the reasoning model (AkashML Llama 3.3 70B, Bedrock Terra fallback) turns the cited
+   procedure into a concrete, whitelisted action plan for this incident.
+"""
+
 import json
 import logging
 import os
 
-from app.shared.bedrock import BedrockClient
+from app.gate.verify import ALLOWED_AUTOMATED_TOOLS
 from app.shared.config import Config
+from app.shared.credentials import resolve_secret
+from app.shared.json_extract import extract_json
+from app.shared.llm import LlmRouter, Role
+from app.shared.senso import SensoClient, SensoError, load_manifest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security solution architect for SEKS (AI Threat Detection and Response).
-Given a triaged security incident, recommend specific remediation actions for an EKS cluster.
+SYSTEM_PROMPT = f"""You are the SEKS Solution agent. You turn a VERIFIED runbook excerpt into an action plan
+for one EKS security incident. You must not use knowledge outside the evidence you are given.
 
-Available remediation actions:
-1. isolate_pod: Apply CiliumNetworkPolicy deny-all + Tetragon SIGKILL label + delete pod
-2. scale_deployment: Scale a deployment to 0 replicas
-3. cordon_node: Prevent new pods from scheduling on a node
-4. drain_node: Evict all pods from a node
-5. checkpoint_pod: Capture pod forensics evidence before isolation (for forensics)
-6. capture_hubble_flows: Capture Cilium/Hubble evidence for the compromised pod before isolation
+Allowed actions (exact names): {", ".join(sorted(ALLOWED_AUTOMATED_TOOLS))}.
+cordon_node and drain_node are human-only and must never appear.
 
-Output a JSON object with:
-- recommended_actions: ordered list of action objects, each with:
-  - action: one of the actions above
-  - target: specific resource (pod name, deployment name, node name, etc.)
-  - namespace: kubernetes namespace
-  - priority: 1 (immediate) to 5 (can wait)
-  - reason: why this action is recommended
-- runbook_match: name of matching runbook if found, null otherwise
-- estimated_impact: description of service impact from remediation
-- rollback_steps: list of steps to undo the remediation if needed
-
-Always recommend checkpoint_pod before isolate_pod for forensic evidence preservation.
-Be specific about targets. Never recommend actions without clear justification."""
+Return ONLY a JSON object:
+{{
+  "runbook_id": "<runbook_id from the evidence>",
+  "recommended_actions": [
+    {{"action": "<allowed action>", "target": "<pod or deployment name>", "namespace": "<ns>",
+      "priority": 1, "reason": "<one sentence, quote the runbook step>"}}
+  ],
+  "approval_card": {{"what": "...", "impact": "...", "rollback": "..."}},
+  "estimated_impact": "...",
+  "rollback_steps": ["..."],
+  "grounded": true
+}}
+Rules:
+- Order: forensic actions first (checkpoint_pod before anything destructive), then label_pod,
+  apply_cilium_network_policy, delete_pod, patch_deployment replicas=0.
+- Targets must come from the incident facts. Never invent pod names.
+- If the evidence does not cover this incident, return {{"grounded": false, "reason": "..."}} and nothing else."""
 
 
 def lambda_handler(event: dict, context) -> dict:
     config = Config()
-    client = BedrockClient(model_id=config.bedrock_model_id, region=config.region)
-
     summary = event.get("summary", {}).get("body", {})
     triage = event.get("triage", {}).get("body", {})
 
-    kb_context = _retrieve_runbook_context(config, summary, triage)
-
-    context_json = json.dumps(
-        {"summary": summary, "triage": triage},
-        indent=2,
-        ensure_ascii=False,
-    )
-
-    user_message = f"Recommend remediation for this incident:\n\n{context_json}"
-    if kb_context:
-        user_message += f"\n\nRelevant runbook context from Knowledge Base:\n{kb_context}"
-
-    response_text = client.invoke(
-        system_prompt=SYSTEM_PROMPT,
-        user_message=user_message,
-        max_tokens=4096,
-    )
-
+    manifest = load_manifest()
+    query = _evidence_query(summary, triage)
     try:
-        solution = json.loads(response_text)
+        senso = SensoClient(config.senso_base_url, resolve_secret("SENSO_API_KEY", config.senso_secret_id, "api_key"))
+        evidence = senso.search_scoped(query, content_ids=list(manifest), max_results=5)
+    except (SensoError, KeyError) as error:
+        logger.warning("Senso evidence lookup failed: %s", error)
+        return _degraded(f"evidence_unavailable: {error}", query)
+
+    if not evidence.citations:
+        return _degraded("no verified runbook covers this incident", query, evidence.to_dict())
+
+    router = LlmRouter(config)
+    completion = router.complete(
+        Role.SOLUTION,
+        SYSTEM_PROMPT,
+        _user_message(summary, triage, evidence.answer, [c.to_dict() for c in evidence.citations]),
+        max_tokens=2048,
+    )
+    try:
+        plan = extract_json(completion.text)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse solution as JSON")
-        solution = {
-            "recommended_actions": [],
-            "runbook_match": None,
-            "estimated_impact": "Unable to determine",
-            "rollback_steps": [],
-            "parse_error": True,
-            "raw_response": response_text,
+        return _degraded("solution model returned non-JSON output", query, evidence.to_dict())
+
+    if not plan.get("grounded", True) or not plan.get("recommended_actions"):
+        return _degraded(plan.get("reason", "model declared evidence insufficient"), query, evidence.to_dict())
+
+    plan["recommended_actions"] = [a for a in plan["recommended_actions"] if a.get("action") in ALLOWED_AUTOMATED_TOOLS]
+    plan.update(
+        {
+            "grounded": True,
+            "citations": [c.to_dict() for c in evidence.citations],
+            "evidence": {"query": query, "answer": evidence.answer, "latency_ms": evidence.latency_ms},
+            "model": {
+                "provider": completion.provider,
+                "model": completion.model,
+                "latency_ms": completion.latency_ms,
+                "fallback_reason": completion.fallback_reason,
+            },
         }
+    )
+    _record(config, summary.get("incident_id"), plan)
+    return plan
 
-    return solution
+
+def _evidence_query(summary: dict, triage: dict) -> str:
+    technique = summary.get("mitre_technique") or ""
+    category = triage.get("category") or ""
+    title = summary.get("title") or ""
+    return f"Official SEKS automated response procedure for {category} {technique}: {title}".strip()
 
 
-def _retrieve_runbook_context(config: Config, summary: dict, triage: dict) -> str:
-    from app.shared.knowledge_base import KnowledgeBaseClient
-
-    if not config.knowledge_base_id:
-        return ""
-
-    kb = KnowledgeBaseClient(knowledge_base_id=config.knowledge_base_id, region=config.region)
-
-    query = (
-        f"Security incident: {summary.get('title', '')}. "
-        f"Category: {triage.get('category', 'unknown')}. "
-        f"Severity: {triage.get('severity', 'unknown')}. "
-        f"What is the recommended remediation procedure?"
+def _user_message(summary: dict, triage: dict, answer: str, citations: list[dict]) -> str:
+    facts = {
+        "incident_id": summary.get("incident_id"),
+        "title": summary.get("title"),
+        "mitre_technique": summary.get("mitre_technique"),
+        "affected": summary.get("affected", {}),
+        "affected_resources": summary.get("affected_resources", []),
+        "severity": triage.get("severity"),
+        "category": triage.get("category"),
+        "correlation": triage.get("correlation"),
+    }
+    excerpts = "\n\n".join(f"[{c['title']} | content_id={c['content_id']}]\n{c['excerpt']}" for c in citations)
+    return (
+        f"INCIDENT FACTS:\n{json.dumps(facts, indent=2, ensure_ascii=False)}\n\n"
+        f"VERIFIED ANSWER (Senso):\n{answer}\n\nVERIFIED EXCERPTS:\n{excerpts}"
     )
 
-    results = kb.retrieve(query, max_results=3)
-    if not results:
-        return ""
 
-    context_parts = []
-    for r in results:
-        source = r.get("source", "unknown")
-        content = r.get("content", "")
-        context_parts.append(f"[Source: {source}]\n{content}")
+def _degraded(reason: str, query: str, evidence: dict | None = None) -> dict:
+    logger.warning("Solution degraded: %s", reason)
+    return {
+        "grounded": False,
+        "degraded": True,
+        "reason": reason,
+        "recommended_actions": [],
+        "citations": (evidence or {}).get("citations", []),
+        "evidence": {"query": query, **({"answer": evidence.get("answer")} if evidence else {})},
+    }
 
-    return "\n---\n".join(context_parts)
+
+def _record(config: Config, incident_id: str | None, plan: dict) -> None:
+    if not config.store_enabled or not incident_id:
+        return
+    from app.shared.store import IncidentStore
+
+    IncidentStore(config).update_incident(
+        incident_id,
+        {
+            "solution": {
+                "runbook_id": plan.get("runbook_id"),
+                "actions": plan.get("recommended_actions"),
+                "citations": [{"content_id": c["content_id"], "title": c["title"]} for c in plan["citations"]],
+                "model": plan["model"],
+            }
+        },
+        stage="solution",
+    )

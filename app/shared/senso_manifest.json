@@ -1,0 +1,130 @@
+{
+  "documents": [
+    {
+      "doc_id": "seks-response-policy",
+      "kind": "policy",
+      "path": "knowledge/policy/response-policy.md",
+      "title": "SEKS policy: SEKS Automated Response Policy",
+      "content_id": "d166c70d-943f-4b39-ade5-c72fa385f6cc",
+      "kb_node_id": "6ae1bfb9-b1e1-4996-9e00-f21ed5b9e632",
+      "sha256": "0f056dbf8e9d5276662de1bb8e381e20740f6900f9bb1db95318447ceadd0dc9"
+    },
+    {
+      "doc_id": "inc-20260803-032017-guardduty-9c4e5a",
+      "kind": "postmortems",
+      "path": "knowledge/postmortems/PM-2026-0803-secret-exfiltration.md",
+      "title": "SEKS postmortems: Post-mortem: Secret exfiltration on `auth-gateway`, correlation outage handled by explicit degradation",
+      "content_id": "db0271e0-1271-43c4-8f97-6d4068c26a23",
+      "kb_node_id": "a5443471-4414-4636-9992-1828f4cf8f6b",
+      "sha256": "ca3b3a4c92177a5429856467507812ab58706b5b57995f2228c6e0c1fd9b4e04"
+    },
+    {
+      "doc_id": "inc-20260827-091844-falco-b2e091",
+      "kind": "postmortems",
+      "path": "knowledge/postmortems/PM-2026-0827-reverse-shell.md",
+      "title": "SEKS postmortems: Post-mortem: Reverse shell on `checkout-api`, killed by Tetragon before the network policy landed",
+      "content_id": "afa0490d-37ac-48f0-8fe3-2b1000b4568a",
+      "kb_node_id": "14ca0719-35d4-4f22-8c71-92b68562b41d",
+      "sha256": "1118e52a287a049e19a9a660810f45873655aa100fdf105a5168c91b96755c3c"
+    },
+    {
+      "doc_id": "inc-20260912-141205-falco-7f3a1c",
+      "kind": "postmortems",
+      "path": "knowledge/postmortems/PM-2026-0912-cryptomining.md",
+      "title": "SEKS postmortems: Post-mortem: Cryptominer execution on `ledger-worker`, caught by sensor correlation and a Semgrep gate",
+      "content_id": "6b846eac-aecf-4fda-bd11-32ddf85aae14",
+      "kb_node_id": "2f312d21-599d-42c2-b249-16f94c1faff5",
+      "sha256": "3354f2c98561a86ecd0d747e131d667b3c6b8896ff6d3164ff5888e6f44186be"
+    },
+    {
+      "doc_id": "container-escape",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/container-escape.md",
+      "title": "SEKS runbooks: Runbook: Container Escape",
+      "content_id": "9b5165c8-dc24-4c1d-be85-ff99603fca51",
+      "kb_node_id": "2a7eaabc-9312-4578-875e-e0105a7d63b3",
+      "sha256": "6b9f2bb2d75438cfe9d06c542d93aa7c90644cc061fab4ec06ee45b6e1d4c1de"
+    },
+    {
+      "doc_id": "cryptomining",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/cryptomining.md",
+      "title": "SEKS runbooks: Runbook: Cryptomining",
+      "content_id": "f527c0c2-f4a0-4034-91ba-7aa68cd91e77",
+      "kb_node_id": "3c5e3f0a-f3f5-41dd-921c-257a385fd8d2",
+      "sha256": "ea28d9077e03f2eafbf2e9a3e829adb808dcc7cadd3f0de5893c8561ea72d3d3"
+    },
+    {
+      "doc_id": "data-exfiltration",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/data-exfiltration.md",
+      "title": "SEKS runbooks: Runbook: Data Exfiltration",
+      "content_id": "a507411e-062f-441b-b636-00b560536abb",
+      "kb_node_id": "f3cc69ca-bfd2-4766-a1d4-dbf50e6c9e80",
+      "sha256": "1a251ceeff644c36e39cc9ade156116c5101799af5d4f186d4d4185cb9149e09"
+    },
+    {
+      "doc_id": "dns-anomaly",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/dns-anomaly.md",
+      "title": "SEKS runbooks: Runbook: DNS Anomaly",
+      "content_id": "e44f2da5-ba02-4de8-970b-e52bfce3ab5d",
+      "kb_node_id": "de2ff50f-39a0-4231-a0bf-6b5ac70da48f",
+      "sha256": "681ae44d35390d347b7119ebfb7fbfa7e4dc21e4de20f34f608664ea42f4e448"
+    },
+    {
+      "doc_id": "image-tampering",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/image-tampering.md",
+      "title": "SEKS runbooks: Runbook: Image Tampering",
+      "content_id": "8c90b528-1f50-424b-ae00-dfc98c45ba75",
+      "kb_node_id": "fe78c74f-283a-4410-9491-10a30345be37",
+      "sha256": "12fd0ec36707270bc96b62acd2b1e748d02ba866b6ccc307e782f0da32b19e8d"
+    },
+    {
+      "doc_id": "lateral-movement",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/lateral-movement.md",
+      "title": "SEKS runbooks: Runbook: Lateral Movement",
+      "content_id": "169f6cb3-c660-49c8-9ab5-28b70b6fd6e9",
+      "kb_node_id": "504fb5b5-3809-48fd-a7a9-e06d97bd4d43",
+      "sha256": "66d3fba52c4986e20a03ac82abc8c1f6d663f27af3eb87598e21b2468aa82db4"
+    },
+    {
+      "doc_id": "privilege-escalation",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/privilege-escalation.md",
+      "title": "SEKS runbooks: Runbook: Privilege Escalation",
+      "content_id": "65f418ca-f3dd-44e0-b9ab-73ef31f53b4b",
+      "kb_node_id": "123c5e61-8682-4456-a5c6-df9b51547a13",
+      "sha256": "37f3860f520d83f0c469afa1190d0dfab1a811432fe2d51e95489abd1103274f"
+    },
+    {
+      "doc_id": "rbac-abuse",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/rbac-abuse.md",
+      "title": "SEKS runbooks: Runbook: RBAC Abuse",
+      "content_id": "0f43625c-06b5-4068-939c-aa0a54b6bd09",
+      "kb_node_id": "e08572b4-dcf5-4cc2-a76a-098e2b4b32de",
+      "sha256": "7b6c1e55bdec3c571c6fae7e371f8bbe25ef24914c4c72235b576f7b50181467"
+    },
+    {
+      "doc_id": "reverse-shell",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/reverse-shell.md",
+      "title": "SEKS runbooks: Runbook: Reverse Shell",
+      "content_id": "79e44a27-80dc-483d-b94e-cbdc5d23c3be",
+      "kb_node_id": "bb4375b3-6475-4a12-bd91-f2e6cfaa8fec",
+      "sha256": "dadb3bdf14de2d3cae1c284603092d02073058ae97530d3442afbb06d4ccc839"
+    },
+    {
+      "doc_id": "secret-exfiltration",
+      "kind": "runbooks",
+      "path": "knowledge/runbooks/secret-exfiltration.md",
+      "title": "SEKS runbooks: Runbook: Secret Exfiltration",
+      "content_id": "efc15cd7-b353-47e8-a053-6ebc31d4e01d",
+      "kb_node_id": "fd2bc284-5bef-478e-b888-7d979a862c12",
+      "sha256": "bbd63de12f1f383c93a5dfa0057ac37a43a3c874acef6f40e8a0a13801c66f36"
+    }
+  ]
+}
