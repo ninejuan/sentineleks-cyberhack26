@@ -14,12 +14,14 @@ LAYER_DIR    := build/layer/python
 .PHONY: infra-up infra-down infra-down-preflight platform-up platform-down deploy-lambdas deploy-layer \
         all-up all-down status lint lint-fix test build build-layer build-lambdas build-mcp \
         sync-runbooks create-opensearch-index create-kb kb-sync \
-        secrets sponsor-secrets sponsor-setup build-gate scale-down scale-up scale-status backup-db clean slack-manifest
+        secrets sponsor-secrets sponsor-setup push-gate-image build-gate demo-up demo-attack scale-down scale-up scale-status backup-db clean slack-manifest
 
 ## ─── Infrastructure ──────────────────────────────────────────────
 
 infra-up: build
-	cd $(TF_DIR) && terraform init && terraform apply -auto-approve
+	cd $(TF_DIR) && terraform init && terraform apply -auto-approve -target=aws_ecr_repository.gate
+	@$(MAKE) -s push-gate-image GATE_TAG=bootstrap
+	cd $(TF_DIR) && terraform apply -auto-approve
 	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(REGION) --alias $(CLUSTER_NAME)
 	@echo "Context created: $(CLUSTER_NAME)"
 	@$(MAKE) -s slack-manifest
@@ -397,6 +399,13 @@ sponsor-setup:
 	@set -a && . ./.credentials && set +a && PYTHONPATH=. python3 scripts/setup_datastores.py
 	@set -a && . ./.credentials && set +a && PYTHONPATH=. python3 scripts/ingest_knowledge.py
 
+demo-up:
+	$(KCTL) apply -f kubernetes/demo/cryptomining-target.yaml
+	$(KCTL) -n demo rollout status deployment/ledger-worker --timeout=120s
+
+demo-attack:
+	@scripts/simulate_cryptomining.sh $(CLUSTER_NAME)
+
 ## ─── Scaling ─────────────────────────────────────────────────────
 
 scale-down:
@@ -449,15 +458,20 @@ build-layer:
 
 build-lambdas:
 	@rm -rf build/lambdas
-	@rm -f $(LAMBDA_MOD)/*.zip terraform/modules/slack/slack_bot.zip
+	@find $(LAMBDA_MOD) -maxdepth 1 -name "*.zip" ! -name layer.zip -delete; rm -f terraform/modules/slack/slack_bot.zip
 	@PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_lambdas.py $(LAMBDA_MOD) terraform/modules/slack
 	@echo "Lambdas packaged."
 
-build-gate:
+push-gate-image:
 	@GATE_REPO=$$(cd $(TF_DIR) && terraform output -raw gate_repository_url) && \
 		aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $$(echo $$GATE_REPO | cut -d/ -f1) >/dev/null && \
-		docker build --platform linux/amd64 --provenance=false -f app/agents/gate/Dockerfile -t $$GATE_REPO:$(MCP_IMAGE_TAG) . && \
-		docker push $$GATE_REPO:$(MCP_IMAGE_TAG) && \
+		docker build --platform linux/amd64 --provenance=false -f app/agents/gate/Dockerfile -t $$GATE_REPO:$(GATE_TAG) . && \
+		docker push $$GATE_REPO:$(GATE_TAG)
+	@echo "Gate image pushed: $(GATE_TAG)"
+
+build-gate:
+	@$(MAKE) -s push-gate-image GATE_TAG=$(MCP_IMAGE_TAG)
+	@GATE_REPO=$$(cd $(TF_DIR) && terraform output -raw gate_repository_url) && \
 		aws lambda update-function-code --function-name $(PROJECT)-gate-agent --image-uri $$GATE_REPO:$(MCP_IMAGE_TAG) --region $(REGION) --no-cli-pager >/dev/null
 	@echo "Gate image deployed: $(MCP_IMAGE_TAG)"
 

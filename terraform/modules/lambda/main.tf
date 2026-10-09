@@ -69,6 +69,26 @@ resource "aws_security_group_rule" "lambda_egress_mcp" {
   security_group_id = aws_security_group.lambda.id
 }
 
+resource "aws_security_group_rule" "lambda_egress_mongodb" {
+  type              = "egress"
+  from_port         = 27017
+  to_port           = 27017
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "MongoDB Atlas (incidents, approval_audit) via NAT EIP"
+  security_group_id = aws_security_group.lambda.id
+}
+
+resource "aws_security_group_rule" "lambda_egress_clickhouse" {
+  type              = "egress"
+  from_port         = 8443
+  to_port           = 8443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "ClickHouse Cloud HTTPS interface (sensor_events correlation)"
+  security_group_id = aws_security_group.lambda.id
+}
+
 resource "aws_lambda_layer_version" "dependencies" {
   layer_name          = "${var.project}-dependencies"
   filename            = "${path.module}/layer.zip"
@@ -523,11 +543,18 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
         }
         TimeoutSeconds = 86400
         ResultPath     = "$.approval"
-        Catch = [{
-          ErrorEquals = ["States.Timeout"]
-          Next        = "ApprovalTimeout"
-          ResultPath  = "$.error"
-        }]
+        Catch = [
+          {
+            ErrorEquals = ["States.Timeout"]
+            Next        = "ApprovalTimeout"
+            ResultPath  = "$.error"
+          },
+          {
+            ErrorEquals = ["States.ALL"]
+            Next        = "DegradedNotify"
+            ResultPath  = "$.error"
+          }
+        ]
         Next = "CheckApproval"
       }
 
@@ -628,7 +655,7 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
           Payload = {
             "source.$"    = "$.source"
             "raw_event.$" = "$.raw_event"
-            "error"       = { "Cause" = "Approval timed out after 1 hour" }
+            "error"       = { "Cause" = "Approval timed out after 24 hours" }
           }
         }
         End = true
