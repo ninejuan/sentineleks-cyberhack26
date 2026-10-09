@@ -9,7 +9,7 @@ from app.shared.json_extract import extract_json
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security event summarizer for an EKS-based threat detection system (ATDR).
+SYSTEM_PROMPT = """You are a security event summarizer for an EKS-based threat detection system (SEKS).
 Your job is to take raw security events from GuardDuty or Falco and produce a structured summary.
 
 Output ONLY a valid JSON object with these fields (no markdown, no explanation, no text before or after):

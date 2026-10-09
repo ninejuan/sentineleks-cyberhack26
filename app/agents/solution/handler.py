@@ -8,7 +8,7 @@ from app.shared.config import Config
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security solution architect for ATDR (AI Threat Detection and Response).
+SYSTEM_PROMPT = """You are a security solution architect for SEKS (AI Threat Detection and Response).
 Given a triaged security incident, recommend specific remediation actions for an EKS cluster.
 
 Available remediation actions:

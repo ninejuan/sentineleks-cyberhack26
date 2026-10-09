@@ -37,13 +37,13 @@ def handle_commands(body: str, config: Config) -> dict:
     command = parsed.get("command", [""])[0]
     text = parsed.get("text", [""])[0]
 
-    if command == "/atdr":
-        return _dispatch_atdr(text, config)
+    if command == "/seks":
+        return _dispatch_seks(text, config)
 
     return blocks_response(unknown_command_blocks(command))
 
 
-def _dispatch_atdr(text: str, config: Config) -> dict:  # noqa: PLR0911, PLR0912
+def _dispatch_seks(text: str, config: Config) -> dict:  # noqa: PLR0911, PLR0912
     parts = text.strip().split(maxsplit=1)
     subcommand = parts[0].lower() if parts else "help"
     rest = parts[1] if len(parts) > 1 else ""
@@ -202,7 +202,7 @@ def _split_id_and_rest(text: str) -> tuple[str, str]:
 def _remediate_response(config: Config, incident_id: str) -> dict:
     if not incident_id:
         return blocks_response(
-            [{"type": "section", "text": {"type": "mrkdwn", "text": "❌ Usage: `/atdr remediate <incident_id>`"}}],
+            [{"type": "section", "text": {"type": "mrkdwn", "text": "❌ Usage: `/seks remediate <incident_id>`"}}],
             ephemeral=True,
         )
 
@@ -231,7 +231,7 @@ def _remediate_response(config: Config, incident_id: str) -> dict:
             sfn.send_task_success(
                 taskToken=task_token,
                 output=json.dumps(
-                    {"decision": "approved", "approved_by": "manual_remediate", "source": "/atdr remediate"}
+                    {"decision": "approved", "approved_by": "manual_remediate", "source": "/seks remediate"}
                 ),
             )
             store.update_incident(incident_id, {"status": "remediation_approved"})

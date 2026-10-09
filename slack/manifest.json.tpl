@@ -1,6 +1,6 @@
 {
   "display_information": {
-    "name": "ATDR",
+    "name": "SEKS",
     "description": "AI Threat Detection and Response for EKS",
     "background_color": "#1a1a2e"
   },
@@ -11,28 +11,28 @@
       "messages_tab_read_only_enabled": false
     },
     "bot_user": {
-      "display_name": "ATDR Bot",
+      "display_name": "SEKS Bot",
       "always_online": true
     },
     "shortcuts": [
       {
-        "name": "View ATDR Status",
+        "name": "View SEKS Status",
         "type": "global",
-        "callback_id": "atdr_view_status",
-        "description": "Open the ATDR system status view"
+        "callback_id": "seks_view_status",
+        "description": "Open the SEKS system status view"
       },
       {
-        "name": "Ack ATDR Incident",
+        "name": "Ack SEKS Incident",
         "type": "global",
-        "callback_id": "atdr_ack_incident",
+        "callback_id": "seks_ack_incident",
         "description": "Acknowledge an incident by ID"
       }
     ],
     "slash_commands": [
       {
-        "command": "/atdr",
+        "command": "/seks",
         "url": "${SLACK_API_URL}/slack/commands",
-        "description": "ATDR security operations",
+        "description": "SEKS security operations",
         "usage_hint": "status | incidents [open|P1] | incident <id> | ack <id> | resolve <id> | oncall | report daily | ioc <id> | evidence <id> | help"
       }
     ]

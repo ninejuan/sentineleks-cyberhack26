@@ -17,7 +17,7 @@ from kubernetes import client as k8s_client
 from kubernetes import config as k8s_config
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
-logger = logging.getLogger("atdr-remediation-mcp")
+logger = logging.getLogger("seks-remediation-mcp")
 
 AUTH_TOKEN = os.environ["MCP_AUTH_TOKEN"]
 PORT = int(os.environ.get("MCP_PORT", "8080"))
@@ -146,8 +146,8 @@ def apply_cilium_network_policy(
             "name": policy_name,
             "namespace": namespace,
             "labels": {
-                "atdr.juany.dev/managed": "true",
-                "atdr.juany.dev/created-at": datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S"),
+                "seks.juany.dev/managed": "true",
+                "seks.juany.dev/created-at": datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S"),
             },
         },
         "spec": {
@@ -626,7 +626,7 @@ def collect_live_pod_forensics(
     if not selected_target:
         return _failure("collect_live_pod_forensics", "pod has no containers to target")
 
-    debug_name = f"atdr-fx-{_hex_suffix()}"[:63]
+    debug_name = f"seks-fx-{_hex_suffix()}"[:63]
     command = list(LIVE_FORENSICS_PROFILES[profile])
     max_secs = max(5, min(int(timeout_seconds or LIVE_FORENSICS_MAX_SECONDS), 120))
 
@@ -1070,7 +1070,7 @@ class McpHandler(BaseHTTPRequestHandler):
             "id": request_id,
             "result": {
                 "protocolVersion": "2025-06-18",
-                "serverInfo": {"name": "atdr-remediation-mcp", "version": "1.0.0"},
+                "serverInfo": {"name": "seks-remediation-mcp", "version": "1.0.0"},
                 "capabilities": {"tools": {}},
             },
         }
@@ -1125,5 +1125,5 @@ class McpHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("0.0.0.0", PORT), McpHandler)  # noqa: S104
-    logger.info("ATDR remediation MCP server listening on port %s", PORT)
+    logger.info("SEKS remediation MCP server listening on port %s", PORT)
     server.serve_forever()

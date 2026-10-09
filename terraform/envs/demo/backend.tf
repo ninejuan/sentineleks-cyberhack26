@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    bucket       = "atdr-tfstate"
+    bucket       = "seks-tfstate"
     key          = "envs/demo/terraform.tfstate"
-    region       = "ap-northeast-2"
+    region       = "us-east-1"
     use_lockfile = true # S3 native lock (Terraform 1.10+, no DynamoDB needed)
   }
 }

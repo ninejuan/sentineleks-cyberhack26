@@ -186,7 +186,7 @@ resource "aws_eks_pod_identity_association" "external_secrets" {
 
 resource "aws_eks_pod_identity_association" "mcp_server" {
   cluster_name    = aws_eks_cluster.main.name
-  namespace       = "atdr"
+  namespace       = "seks"
   service_account = "eks-mcp-server"
   role_arn        = var.mcp_server_role_arn
 }

@@ -1,6 +1,6 @@
-# ATDR 시스템 아키텍처
+# SEKS 시스템 아키텍처
 
-> ATDR — AI 기반 EKS 위협 탐지 및 대응 시스템
+> SEKS — AI 기반 EKS 위협 탐지 및 대응 시스템
 > 문서 버전: 0.1 | 작성일: 2026-05-04 | 대상 독자: 개발팀 (4인)
 
 ---
@@ -20,11 +20,11 @@
 
 ## 1. 시스템 전체 구조
 
-ATDR(AI Threat Detection and Response)은 5개 레이어로 구성된다. 각 레이어는 독립적으로 교체 가능하도록 설계했으며, 레이어 간 인터페이스는 이벤트 스키마로 고정한다.
+SEKS(AI Threat Detection and Response)은 5개 레이어로 구성된다. 각 레이어는 독립적으로 교체 가능하도록 설계했으며, 레이어 간 인터페이스는 이벤트 스키마로 고정한다.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     ATDR 시스템 전체 구조                         │
+│                     SEKS 시스템 전체 구조                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  [레이어 1] 데이터 수집                                           │
@@ -106,7 +106,7 @@ EKS 환경에서 보안 이벤트는 클라우드, 쿠버네티스, 런타임, �
 
 ### 2.1 CloudTrail → EventBridge
 
-CloudTrail은 AWS API 호출 전체를 기록한다. ATDR에서는 다음 이벤트 유형을 EventBridge Rule로 필터링한다.
+CloudTrail은 AWS API 호출 전체를 기록한다. SEKS에서는 다음 이벤트 유형을 EventBridge Rule로 필터링한다.
 
 - `ConsoleLogin` — 루트 계정 또는 MFA 없는 로그인
 - `CreateUser`, `AttachUserPolicy` — IAM 권한 변경
@@ -190,7 +190,7 @@ Falco 룰 예시:
   tags: [network, lateral_movement]
 ```
 
-Falcosidekick은 Falco 이벤트를 SNS로 전달한다. SNS → SQS → Lambda 경로로 ATDR AI 분석 레이어에 도달한다.
+Falcosidekick은 Falco 이벤트를 SNS로 전달한다. SNS → SQS → Lambda 경로로 SEKS AI 분석 레이어에 도달한다.
 
 ### 2.7 Tetragon (Cilium) — 커널 레벨 이벤트 수집 + 차단
 
@@ -289,7 +289,7 @@ Lambda 실패 (3회 재시도)
 
 ### 3.4 이벤트 스키마 정규화
 
-GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진입점에서 두 포맷을 ATDR 내부 스키마로 정규화한다.
+GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진입점에서 두 포맷을 SEKS 내부 스키마로 정규화한다.
 
 **GuardDuty ASFF 원본 (일부):**
 
@@ -302,7 +302,7 @@ GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진�
   "Severity": { "Label": "HIGH", "Normalized": 70 },
   "Resources": [{
     "Type": "AwsEksCluster",
-    "Id": "arn:aws:eks:ap-northeast-2:123456789:cluster/atdr-cluster",
+    "Id": "arn:aws:eks:ap-northeast-2:123456789:cluster/seks-cluster",
     "Details": {
       "Container": {
         "Name": "nginx",
@@ -330,7 +330,7 @@ GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진�
 }
 ```
 
-**ATDR 내부 정규화 스키마:**
+**SEKS 내부 정규화 스키마:**
 
 ```json
 {
@@ -341,7 +341,7 @@ GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진�
   "severity": "HIGH",
   "severity_score": 70,
   "finding_type": "Kubernetes:Backdoor/RuntimeExecution",
-  "cluster": "atdr-cluster",
+  "cluster": "seks-cluster",
   "namespace": "app",
   "pod_name": "nginx-pod",
   "container_name": "nginx",
@@ -362,7 +362,7 @@ GuardDuty Finding(ASFF 포맷)과 Falco JSON은 구조가 다르다. Lambda 진�
 
 ## 4. AI 분석 레이어
 
-ATDR의 핵심이다. Lambda 위에서 Strands Agent SDK로 구현한 4개 Agent가 순차적으로 실행되며, 각 Agent는 이전 Agent의 출력을 입력으로 받는다.
+SEKS의 핵심이다. Lambda 위에서 Strands Agent SDK로 구현한 4개 Agent가 순차적으로 실행되며, 각 Agent는 이전 Agent의 출력을 입력으로 받는다.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -414,7 +414,7 @@ ATDR의 핵심이다. Lambda 위에서 Strands Agent SDK로 구현한 4개 Agent
 
 가장 먼저 실행된다. 정규화된 이벤트를 받아 분석에 필요한 핵심 정보를 구조화된 형태로 추출한다. Haiku 4.5를 쓰는 이유는 속도와 비용이다. 요약 작업은 복잡한 추론이 필요 없으므로 빠른 모델이 적합하다.
 
-**입력:** ATDR 정규화 스키마 이벤트
+**입력:** SEKS 정규화 스키마 이벤트
 
 **출력 스키마 (SummaryOutput):**
 
@@ -685,8 +685,8 @@ metadata:
   name: quarantine-nginx-pod
   namespace: app
   labels:
-    atdr.juany.dev/incident-id: "evt-20260504-a1b2c3d4"
-    atdr.juany.dev/auto-generated: "true"
+    seks.juany.dev/incident-id: "evt-20260504-a1b2c3d4"
+    seks.juany.dev/auto-generated: "true"
 spec:
   podSelector:
     matchLabels:
@@ -804,15 +804,15 @@ Remediation Agent는 실행 결과를 바탕으로 런북 개선 제안을 생�
 
 Prometheus는 클러스터 메트릭을 수집한다. kube-state-metrics와 node-exporter를 함께 배포해 Pod, Node, 네임스페이스 레벨 메트릭을 모두 수집한다.
 
-ATDR 전용 커스텀 메트릭:
+SEKS 전용 커스텀 메트릭:
 
 | 메트릭 이름 | 설명 |
 |------------|------|
-| `atdr_events_total` | 처리된 보안 이벤트 총 수 (소스별) |
-| `atdr_agent_latency_seconds` | 각 Agent 처리 시간 |
-| `atdr_remediation_actions_total` | 실행된 대응 액션 수 (타입별) |
-| `atdr_false_positive_rate` | 운영자가 거부한 비율 |
-| `atdr_mttr_seconds` | 탐지부터 대응 완료까지 시간 |
+| `seks_events_total` | 처리된 보안 이벤트 총 수 (소스별) |
+| `seks_agent_latency_seconds` | 각 Agent 처리 시간 |
+| `seks_remediation_actions_total` | 실행된 대응 액션 수 (타입별) |
+| `seks_false_positive_rate` | 운영자가 거부한 비율 |
+| `seks_mttr_seconds` | 탐지부터 대응 완료까지 시간 |
 
 Grafana 대시보드 구성:
 - **인시던트 현황**: 실시간 이벤트 스트림, 심각도 분포
@@ -856,7 +856,7 @@ hubble observe \
 
 저장 데이터:
 - 원본 이벤트 (GuardDuty Finding, Falco Alert)
-- ATDR 정규화 스키마 이벤트
+- SEKS 정규화 스키마 이벤트
 - 각 Agent 입출력 (전체 분석 체인)
 - 실행된 대응 액션 및 결과
 - Slack 승인/거부 기록
@@ -872,7 +872,7 @@ SELECT
   userIdentity.arn,
   eventName,
   requestParameters
-FROM atdr_cloudtrail_lake
+FROM seks_cloudtrail_lake
 WHERE eventTime BETWEEN '2026-05-04T09:23:00Z' AND '2026-05-04T11:23:00Z'
   AND eventSource = 'iam.amazonaws.com'
   AND eventName IN ('CreateUser', 'AttachUserPolicy', 'CreateAccessKey')
@@ -901,7 +901,7 @@ curl -X POST \
 
 ## 7. 보안 레이어
 
-ATDR 시스템 자체의 보안을 다루는 레이어다. 탐지 시스템이 침해되면 모든 대응 능력을 잃으므로, 시스템 자체 보안은 탐지 대상 워크로드만큼 중요하다.
+SEKS 시스템 자체의 보안을 다루는 레이어다. 탐지 시스템이 침해되면 모든 대응 능력을 잃으므로, 시스템 자체 보안은 탐지 대상 워크로드만큼 중요하다.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -942,7 +942,7 @@ encryption:
 
 ### 7.2 ValidatingAdmissionPolicy (CEL)
 
-Kubernetes 1.30+에서 GA된 ValidatingAdmissionPolicy는 OPA/Gatekeeper 없이 CEL(Common Expression Language)로 입장 정책을 작성할 수 있다. ATDR에서는 다음 정책을 적용한다.
+Kubernetes 1.30+에서 GA된 ValidatingAdmissionPolicy는 OPA/Gatekeeper 없이 CEL(Common Expression Language)로 입장 정책을 작성할 수 있다. SEKS에서는 다음 정책을 적용한다.
 
 **privileged 컨테이너 배포 차단:**
 
@@ -986,24 +986,24 @@ spec:
 EKS Access Entry는 `aws-auth` ConfigMap 방식을 대체하는 IAM 기반 쿠버네티스 접근 제어다. IAM 역할을 쿠버네티스 RBAC 그룹에 직접 매핑한다.
 
 ```bash
-# ATDR 운영자 역할 매핑
+# SEKS 운영자 역할 매핑
 aws eks create-access-entry \
-  --cluster-name atdr-cluster \
-  --principal-arn arn:aws:iam::123456789:role/ATDROperatorRole \
-  --kubernetes-groups atdr-operators
+  --cluster-name seks-cluster \
+  --principal-arn arn:aws:iam::123456789:role/SEKSOperatorRole \
+  --kubernetes-groups seks-operators
 
 # 읽기 전용 감사 역할
 aws eks create-access-entry \
-  --cluster-name atdr-cluster \
-  --principal-arn arn:aws:iam::123456789:role/ATDRAuditRole \
-  --kubernetes-groups atdr-auditors
+  --cluster-name seks-cluster \
+  --principal-arn arn:aws:iam::123456789:role/SEKSAuditRole \
+  --kubernetes-groups seks-auditors
 ```
 
 ### 7.4 Pod Identity + IAM Role
 
 EKS Pod Identity는 IRSA(IAM Roles for Service Accounts)의 후속 기능이다. ServiceAccount에 IAM Role을 직접 연결해 Pod가 AWS 서비스에 접근할 때 최소 권한 원칙을 적용한다.
 
-ATDR Lambda 함수의 IAM 권한 (최소 권한):
+SEKS Lambda 함수의 IAM 권한 (최소 권한):
 
 ```json
 {
@@ -1022,7 +1022,7 @@ ATDR Lambda 함수의 IAM 권한 (최소 권한):
       "Action": [
         "aoss:APIAccessAll"
       ],
-      "Resource": "arn:aws:aoss:ap-northeast-2:123456789:collection/atdr-kb"
+      "Resource": "arn:aws:aoss:ap-northeast-2:123456789:collection/seks-kb"
     },
     {
       "Effect": "Allow",
@@ -1030,7 +1030,7 @@ ATDR Lambda 함수의 IAM 권한 (최소 권한):
         "eks:DescribeCluster",
         "eks:ListNodegroups"
       ],
-      "Resource": "arn:aws:eks:ap-northeast-2:123456789:cluster/atdr-cluster"
+      "Resource": "arn:aws:eks:ap-northeast-2:123456789:cluster/seks-cluster"
     },
     {
       "Effect": "Allow",
@@ -1038,7 +1038,7 @@ ATDR Lambda 함수의 IAM 권한 (최소 권한):
         "s3:PutObject",
         "s3:GetObject"
       ],
-      "Resource": "arn:aws:s3:::atdr-forensics-bucket/*"
+      "Resource": "arn:aws:s3:::seks-forensics-bucket/*"
     }
   ]
 }
@@ -1048,10 +1048,10 @@ ATDR Lambda 함수의 IAM 권한 (최소 권한):
 
 | 암호화 대상 | KMS 키 | 설명 |
 |------------|--------|------|
-| EKS Secrets | `atdr/eks-secrets` | etcd 저장 시크릿 암호화 |
-| CloudTrail 로그 | `atdr/cloudtrail` | 감사 로그 무결성 보장 |
-| S3 포렌식 버킷 | `atdr/forensics` | 인시던트 데이터 암호화 |
-| SQS 메시지 | `atdr/sqs` | 이벤트 전달 중 암호화 |
+| EKS Secrets | `seks/eks-secrets` | etcd 저장 시크릿 암호화 |
+| CloudTrail 로그 | `seks/cloudtrail` | 감사 로그 무결성 보장 |
+| S3 포렌식 버킷 | `seks/forensics` | 인시던트 데이터 암호화 |
+| SQS 메시지 | `seks/sqs` | 이벤트 전달 중 암호화 |
 
 모든 KMS 키는 자동 로테이션(1년)을 활성화하고, 키 정책으로 접근 주체를 최소화한다.
 
@@ -1103,8 +1103,8 @@ EKS API 서버는 private endpoint만 활성화한다. 클러스터 외부에서
 
 ```hcl
 # terraform/eks/main.tf
-resource "aws_eks_cluster" "atdr" {
-  name = "atdr-cluster"
+resource "aws_eks_cluster" "seks" {
+  name = "seks-cluster"
 
   vpc_config {
     endpoint_private_access = true
@@ -1126,10 +1126,10 @@ resource "aws_eks_cluster" "atdr" {
 
 | Security Group | 인바운드 | 아웃바운드 |
 |---------------|---------|----------|
-| `atdr-eks-control-plane` | 443 (노드 SG에서) | 1025-65535 (노드 SG로) |
-| `atdr-eks-nodes` | 전체 (노드 SG 내부) | 443 (Control Plane SG로), 443 (VPC Endpoints) |
-| `atdr-lambda` | 없음 | 443 (VPC Endpoints), 443 (SQS/SNS) |
-| `atdr-vpc-endpoints` | 443 (Lambda SG, 노드 SG에서) | 없음 |
+| `seks-eks-control-plane` | 443 (노드 SG에서) | 1025-65535 (노드 SG로) |
+| `seks-eks-nodes` | 전체 (노드 SG 내부) | 443 (Control Plane SG로), 443 (VPC Endpoints) |
+| `seks-lambda` | 없음 | 443 (VPC Endpoints), 443 (SQS/SNS) |
+| `seks-vpc-endpoints` | 443 (Lambda SG, 노드 SG에서) | 없음 |
 
 ### 8.4 Cilium L7 NetworkPolicy
 
@@ -1166,22 +1166,22 @@ spec:
         protocol: TCP
 ```
 
-**ATDR 시스템 컴포넌트 간 통신 정책:**
+**SEKS 시스템 컴포넌트 간 통신 정책:**
 
 ```yaml
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: atdr-internal-policy
-  namespace: atdr-system
+  name: seks-internal-policy
+  namespace: seks-system
 spec:
   endpointSelector:
     matchLabels:
-      app: atdr-eks-mcp
+      app: seks-eks-mcp
   ingress:
   - fromEndpoints:
     - matchLabels:
-        app: atdr-remediation-agent
+        app: seks-remediation-agent
     toPorts:
     - ports:
       - port: "8080"
@@ -1212,7 +1212,7 @@ spec:
 
 Lambda (Strands Agent 파이프라인)
   │
-  ├── 이벤트 정규화 (ASFF / Falco JSON → ATDR 스키마)
+  ├── 이벤트 정규화 (ASFF / Falco JSON → SEKS 스키마)
   │
   ├── Summary Agent (Haiku 4.5)
   │     └── 핵심 정보 추출, 엔티티 식별

@@ -44,7 +44,7 @@ def test_mcp_client_calls_tool_with_bearer_token(monkeypatch):
 
     monkeypatch.setattr("app.shared.mcp_client.http.client.HTTPConnection", fake_connection)
 
-    result = McpClient("http://mcp.internal/mcp", "atdr/mcp/auth-token", 7).call_tool("delete_pod", {"pod_name": "p"})
+    result = McpClient("http://mcp.internal/mcp", "seks/mcp/auth-token", 7).call_tool("delete_pod", {"pod_name": "p"})
 
     assert result == {"status": "success"}
     assert captured["netloc"] == "mcp.internal"
@@ -66,7 +66,7 @@ def test_mcp_client_raises_on_jsonrpc_error(monkeypatch):
     monkeypatch.setattr("app.shared.mcp_client.http.client.HTTPConnection", fake_connection)
 
     with pytest.raises(McpClientError, match="denied"):
-        McpClient("http://mcp.internal/mcp", "atdr/mcp/auth-token").call_tool("delete_pod", {})
+        McpClient("http://mcp.internal/mcp", "seks/mcp/auth-token").call_tool("delete_pod", {})
 
 
 def test_mcp_client_raises_on_http_error(monkeypatch):
@@ -78,7 +78,7 @@ def test_mcp_client_raises_on_http_error(monkeypatch):
     monkeypatch.setattr("app.shared.mcp_client.http.client.HTTPConnection", fake_connection)
 
     with pytest.raises(McpClientError, match="HTTP 401"):
-        McpClient("http://mcp.internal/mcp", "atdr/mcp/auth-token").call_tool("delete_pod", {})
+        McpClient("http://mcp.internal/mcp", "seks/mcp/auth-token").call_tool("delete_pod", {})
 
 
 def test_mcp_client_raises_on_connection_error(monkeypatch):
@@ -98,4 +98,4 @@ def test_mcp_client_raises_on_connection_error(monkeypatch):
     monkeypatch.setattr("app.shared.mcp_client.http.client.HTTPConnection", fake_connection)
 
     with pytest.raises(McpClientError, match="connection failed"):
-        McpClient("http://mcp.internal/mcp", "atdr/mcp/auth-token").call_tool("delete_pod", {})
+        McpClient("http://mcp.internal/mcp", "seks/mcp/auth-token").call_tool("delete_pod", {})

@@ -174,7 +174,7 @@ aws cloudtrail lookup-events \
   --output json > /tmp/evidence-cloudtrail-$(date +%s).json
 
 # 증거 S3 업로드
-aws s3 cp /tmp/evidence-* s3://atdr-evidence-bucket/incidents/<INCIDENT_ID>/
+aws s3 cp /tmp/evidence-* s3://seks-evidence-bucket/incidents/<INCIDENT_ID>/
 ```
 
 ### 3단계: 근본 원인 분석
@@ -262,7 +262,7 @@ aws logs put-metric-filter \
   --filter-name "rbac-changes" \
   --filter-pattern '{ $.objectRef.resource = "clusterrolebindings" && $.verb = "create" }' \
   --metric-transformations \
-    metricName=RBACChanges,metricNamespace=ATDR/Security,metricValue=1
+    metricName=RBACChanges,metricNamespace=SEKS/Security,metricValue=1
 
 # EKS Access Entry로 마이그레이션 (aws-auth ConfigMap 대신 사용 권장)
 aws eks create-access-entry \

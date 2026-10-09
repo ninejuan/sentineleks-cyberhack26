@@ -1,6 +1,6 @@
 # 08. 공격 시뮬레이션 설계 (Attack Simulation)
 
-> 내부 설계 문서 v0.1 | 2026-05-04 | ATDR 캡스톤
+> 내부 설계 문서 v0.1 | 2026-05-04 | SEKS 캡스톤
 
 ---
 
@@ -142,10 +142,10 @@ metadata:
   name: crypto-sim-job
   namespace: attack-simulation
   labels:
-    atdr.juany.dev/simulation: "true"
-    atdr.juany.dev/scenario: "crypto-mining"
+    seks.juany.dev/simulation: "true"
+    seks.juany.dev/scenario: "crypto-mining"
   annotations:
-    atdr.juany.dev/ttl: "300"
+    seks.juany.dev/ttl: "300"
 spec:
   ttlSecondsAfterFinished: 300
   template:
@@ -225,8 +225,8 @@ metadata:
   name: priv-esc-sim
   namespace: attack-simulation
   labels:
-    atdr.juany.dev/simulation: "true"
-    atdr.juany.dev/scenario: "privilege-escalation"
+    seks.juany.dev/simulation: "true"
+    seks.juany.dev/scenario: "privilege-escalation"
 spec:
   containers:
   - name: attacker
@@ -485,8 +485,8 @@ kubectl create namespace attack-simulation
 
 # 레이블 추가 (NetworkPolicy 셀렉터용)
 kubectl label namespace attack-simulation \
-    atdr.juany.dev/purpose=attack-simulation \
-    atdr.juany.dev/isolation=strict
+    seks.juany.dev/purpose=attack-simulation \
+    seks.juany.dev/isolation=strict
 ```
 
 ### NetworkPolicy: 외부 통신 차단
@@ -545,7 +545,7 @@ spec:
 ```bash
 # 시뮬레이션 후 수동 정리 (TTL 만료 전 즉시 정리 필요 시)
 kubectl delete all -n attack-simulation \
--l atdr.juany.dev/simulation=true
+-l seks.juany.dev/simulation=true
 
 # 네임스페이스 전체 정리 (시뮬레이션 세션 종료 시)
 kubectl delete namespace attack-simulation
@@ -591,8 +591,8 @@ kubectl get namespace attack-simulation
 kubectl get networkpolicy -n attack-simulation
 kubectl get resourcequota -n attack-simulation
 
-# 3. ATDR 파이프라인 상태 확인
-kubectl get pods -n atdr
+# 3. SEKS 파이프라인 상태 확인
+kubectl get pods -n seks
 aws guardduty list-detectors --query 'DetectorIds'
 ```
 
@@ -607,8 +607,8 @@ metadata:
   name: crypto-sim-job
   namespace: attack-simulation
   labels:
-    atdr.juany.dev/simulation: "true"
-    atdr.juany.dev/scenario: "crypto-mining"
+    seks.juany.dev/simulation: "true"
+    seks.juany.dev/scenario: "crypto-mining"
 spec:
   ttlSecondsAfterFinished: 300
   template:
@@ -654,7 +654,7 @@ kubectl logs -n falco -l app=falco --since=5m | grep -i "miner\|stratum\|crypto"
 
 # SQS 큐에서 이벤트 수신 확인
 aws sqs get-queue-attributes \
-  --queue-url $(aws sqs get-queue-url --queue-name atdr-falco-events --query 'QueueUrl' --output text) \
+  --queue-url $(aws sqs get-queue-url --queue-name seks-falco-events --query 'QueueUrl' --output text) \
   --attribute-names ApproximateNumberOfMessages
 ```
 
@@ -662,13 +662,13 @@ aws sqs get-queue-attributes \
 
 ```bash
 # Lambda 로그에서 에이전트 체인 실행 확인
-aws logs tail /aws/lambda/atdr-detector \
+aws logs tail /aws/lambda/seks-detector \
   --since 5m \
   --filter-pattern "Summary Agent\|Triage Agent\|Solution Agent\|Remediation Agent"
 
 # DynamoDB에서 인시던트 레코드 확인
 aws dynamodb scan \
-  --table-name atdr-incidents \
+  --table-name seks-incidents \
   --filter-expression "scenario = :s" \
   --expression-attribute-values '{":s":{"S":"crypto-mining"}}' \
   --query 'Items[*].{id:incident_id.S,severity:severity.S,status:status.S}'
@@ -702,7 +702,7 @@ echo "Time to Remediation: ~60sec (after approval)"
 # 시뮬레이션 리소스 정리
 kubectl delete job crypto-sim-job -n attack-simulation --ignore-not-found
 kubectl delete networkpolicy -n attack-simulation \
--l atdr.juany.dev/simulation=true --ignore-not-found
+-l seks.juany.dev/simulation=true --ignore-not-found
 
 # 인시던트 레코드 보존 (평가 데이터로 활용)
 echo "Incident records preserved in DynamoDB for evaluation"

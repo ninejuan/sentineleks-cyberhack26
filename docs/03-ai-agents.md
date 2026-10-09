@@ -17,7 +17,7 @@
 
 ### AWS Strands Agent SDK 선택 이유
 
-ATDR(AI Threat Detection and Response)의 AI 레이어는 AWS Strands Agent SDK를 기반으로 구축한다. 선택 근거는 세 가지다.
+SEKS(AI Threat Detection and Response)의 AI 레이어는 AWS Strands Agent SDK를 기반으로 구축한다. 선택 근거는 세 가지다.
 
 첫째, Bedrock 네이티브 통합이다. Strands SDK는 Amazon Bedrock을 직접 호출하도록 설계되어 있어 별도의 LLM 래퍼나 프록시 없이 Claude 모델을 사용할 수 있다. AWS SA 레퍼런스 아키텍처와 동일한 패턴을 따르므로 운영 복잡도가 낮다.
 
@@ -62,7 +62,7 @@ Lambda 함수별 메모리와 타임아웃 설정은 Agent 역할에 따라 다�
 
 ### 4 Agent 오케스트레이션: Step Functions Express Workflow
 
-ATDR은 단일 모놀리식 AI가 아니라 역할이 분리된 4개의 전문 Agent로 구성된다. 각 Agent는 이전 Agent의 출력을 입력으로 받아 처리하는 파이프라인 구조다.
+SEKS은 단일 모놀리식 AI가 아니라 역할이 분리된 4개의 전문 Agent로 구성된다. 각 Agent는 이전 Agent의 출력을 입력으로 받아 처리하는 파이프라인 구조다.
 
 ```
 원시 이벤트 (GuardDuty / Falco)
@@ -90,18 +90,18 @@ ATDR은 단일 모놀리식 AI가 아니라 역할이 분리된 4개의 전문 A
 
 ```json
 {
-  "Comment": "ATDR Agent Pipeline",
+  "Comment": "SEKS Agent Pipeline",
   "StartAt": "SummaryAgent",
   "States": {
     "SummaryAgent": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:atdr-summary-agent",
+      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:seks-summary-agent",
       "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2}],
       "Next": "TriageAgent"
     },
     "TriageAgent": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:atdr-triage-agent",
+      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:seks-triage-agent",
       "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2}],
       "Next": "CheckSeverity"
     },
@@ -118,19 +118,19 @@ ATDR은 단일 모놀리식 AI가 아니라 역할이 분리된 4개의 전문 A
     },
     "SolutionAgent": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:atdr-solution-agent",
+      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:seks-solution-agent",
       "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2}],
       "Next": "RemediationAgent"
     },
     "RemediationAgent": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:atdr-remediation-agent",
+      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:seks-remediation-agent",
       "Retry": [{"ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 1}],
       "End": true
     },
     "LogOnly": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:atdr-log-incident",
+      "Resource": "arn:aws:lambda:ap-northeast-2:ACCOUNT:function:seks-log-incident",
       "End": true
     }
   }
@@ -482,7 +482,7 @@ Solution Agent는 최대 5개의 대응 액션을 우선순위 순으로 반환�
   "matched_runbooks": [
     {
       "title": "Lateral Movement - Internal Network Scan Response",
-      "s3_uri": "s3://atdr-runbooks/lateral-movement/internal-scan.md",
+      "s3_uri": "s3://seks-runbooks/lateral-movement/internal-scan.md",
       "relevance_score": 0.92
     }
   ],
@@ -635,7 +635,7 @@ def request_approval(action: dict, solution_id: str) -> str:
 
     sns.publish(
         TopicArn=APPROVAL_TOPIC_ARN,
-        Subject=f"[ATDR] 대응 액션 승인 요청: {action['action_type']}",
+        Subject=f"[SEKS] 대응 액션 승인 요청: {action['action_type']}",
         Message=json.dumps(message, ensure_ascii=False),
     )
     return approval_id
@@ -663,7 +663,7 @@ def request_approval(action: dict, solution_id: str) -> str:
       "executed_at": "2026-05-04T10:01:00Z",
       "approval_required": false,
       "result": {
-        "policy_name": "atdr-block-payment-service-egress",
+        "policy_name": "seks-block-payment-service-egress",
         "namespace": "production",
         "applied": true
       }
@@ -679,7 +679,7 @@ def request_approval(action: dict, solution_id: str) -> str:
     }
   ],
   "runbook_feedback": {
-    "runbook_uri": "s3://atdr-runbooks/lateral-movement/internal-scan.md",
+    "runbook_uri": "s3://seks-runbooks/lateral-movement/internal-scan.md",
     "feedback": "NetworkPolicy 적용으로 스캔 트래픽 즉시 차단 확인. 추가 pod 격리는 승인 대기 중.",
     "outcome": "partial_success"
   },
@@ -799,7 +799,7 @@ s3://${FORENSICS_BUCKET}/incidents/{incident_id}/ai/{timestamp}/
 
 ### DynamoDB 기록
 
-`atdr-incidents` 테이블에 다음 필드가 갱신된다:
+`seks-incidents` 테이블에 다음 필드가 갱신된다:
 
 - `forensic_synthesis_status`: `completed` 또는 `parse_error`
 - `forensic_synthesis_uris`: 각 아티팩트 S3 URI 맵
@@ -963,7 +963,7 @@ def safe_agent_handler(handler_fn):
             # CloudWatch에 에러 메트릭 기록
             cloudwatch = boto3.client("cloudwatch")
             cloudwatch.put_metric_data(
-                Namespace="ATDR/AgentErrors",
+                Namespace="SEKS/AgentErrors",
                 MetricData=[{
                     "MetricName": "AgentFailure",
                     "Dimensions": [{"Name": "AgentName", "Value": context.function_name}],
@@ -1083,7 +1083,7 @@ Bedrock Knowledge Base는 OpenSearch Serverless를 벡터 스토어로 사용한
 ### S3 런북 저장소 구조
 
 ```
-s3://atdr-runbooks/
+s3://seks-runbooks/
 ├── lateral-movement/
 │   ├── internal-scan.md
 │   ├── namespace-traversal.md

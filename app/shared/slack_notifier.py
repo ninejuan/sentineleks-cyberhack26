@@ -109,7 +109,7 @@ class SlackNotifier:
         return [
             {
                 "type": "header",
-                "text": {"type": "plain_text", "text": f"ATDR Incident: {incident_id}"},
+                "text": {"type": "plain_text", "text": f"SEKS Incident: {incident_id}"},
             },
             {
                 "type": "section",
@@ -169,7 +169,7 @@ class SlackNotifier:
         return [
             {
                 "type": "header",
-                "text": {"type": "plain_text", "text": "ATDR Degraded Alert"},
+                "text": {"type": "plain_text", "text": "SEKS Degraded Alert"},
             },
             {
                 "type": "section",

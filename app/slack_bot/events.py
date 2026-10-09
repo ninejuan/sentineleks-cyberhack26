@@ -56,18 +56,18 @@ def _handle_message(event: dict, config: Config) -> dict:
         blocks = status_blocks(config.eks_cluster_name)
     elif any(keyword in text for keyword in ["incident", "인시던트", "사건"]):
         blocks = message_response_blocks(
-            "Use `/atdr incidents` to view recent incidents, or check the Grafana dashboard for real-time monitoring."
+            "Use `/seks incidents` to view recent incidents, or check the Grafana dashboard for real-time monitoring."
         )
     elif any(keyword in text for keyword in ["help", "도움", "도와"]):
         blocks = help_blocks()
     else:
         blocks = message_response_blocks(
-            "👋 Hi! I'm the ATDR security bot.\n\n"
+            "👋 Hi! I'm the SEKS security bot.\n\n"
             "I can help with:\n"
             "• *status* — Check system health\n"
             "• *incidents* — View recent threats\n"
             "• *help* — Show all commands\n\n"
-            "Or use `/atdr <command>` for slash commands."
+            "Or use `/seks <command>` for slash commands."
         )
 
     _post_message(channel, blocks, config)

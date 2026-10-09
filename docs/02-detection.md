@@ -6,7 +6,7 @@
 
 ## 1. 탐지 전략 개요
 
-ATDR의 탐지 레이어는 단일 도구에 의존하지 않는다. AWS 네이티브 서비스, 오픈소스 런타임 모니터, 커널 레벨 정책 엔진을 조합해 서로 다른 관찰 지점에서 동시에 신호를 수집한다.
+SEKS의 탐지 레이어는 단일 도구에 의존하지 않는다. AWS 네이티브 서비스, 오픈소스 런타임 모니터, 커널 레벨 정책 엔진을 조합해 서로 다른 관찰 지점에서 동시에 신호를 수집한다.
 
 세 도구의 역할은 다음과 같이 구분된다.
 
@@ -48,7 +48,7 @@ GuardDuty의 Extended Threat Detection은 단일 이벤트가 아닌 다단계 �
 
 ### 2.4 주요 EKS Finding 유형
 
-ATDR 시나리오에서 주로 발생하는 Finding 유형과 MITRE ATT&CK 매핑은 다음과 같다.
+SEKS 시나리오에서 주로 발생하는 Finding 유형과 MITRE ATT&CK 매핑은 다음과 같다.
 
 | Finding 유형 | 설명 | MITRE ATT&CK |
 |---|---|---|
@@ -81,7 +81,7 @@ resource "aws_guardduty_detector" "main" {
   }
 
   tags = {
-    Project = "atdr"
+    Project = "seks"
     Env     = var.environment
   }
 }
@@ -108,12 +108,12 @@ resource "aws_guardduty_detector_feature" "eks_runtime_monitoring" {
 
 Falco는 Linux 커널의 syscall을 실시간으로 감시한다. eBPF probe를 커널에 삽입해 프로세스 실행, 파일 접근, 네트워크 연결 등의 이벤트를 캡처하고, 사전 정의된 규칙과 대조해 위협을 탐지한다.
 
-ATDR에서는 `modern_bpf` 드라이버를 사용한다. 커널 모듈 방식보다 안정적이고 커널 버전 의존성이 낮다.
+SEKS에서는 `modern_bpf` 드라이버를 사용한다. 커널 모듈 방식보다 안정적이고 커널 버전 의존성이 낮다.
 
 ### 3.2 Helm 배포
 
 ```yaml
-# values-atdr.yaml
+# values-seks.yaml
 driver:
   kind: modern_bpf
 
@@ -130,7 +130,7 @@ falcosidekick:
   config:
     aws:
       sns:
-        topicarn: "arn:aws:sns:ap-northeast-2:ACCOUNT_ID:atdr-falco-alerts"
+        topicarn: "arn:aws:sns:ap-northeast-2:ACCOUNT_ID:seks-falco-alerts"
         region: "ap-northeast-2"
         minimumpriority: "warning"
 
@@ -150,7 +150,7 @@ helm repo update
 helm install falco falcosecurity/falco \
   --namespace falco \
   --create-namespace \
-  --values values-atdr.yaml
+  --values values-seks.yaml
 ```
 
 ### 3.3 커스텀 룰
@@ -281,20 +281,20 @@ helm install falco falcosecurity/falco \
 
 ### 3.4 Falcosidekick SNS 출력 설정
 
-Falcosidekick은 Falco Alert를 다양한 외부 시스템으로 전달하는 팬아웃 컴포넌트다. ATDR에서는 SNS를 통해 Lambda 상관관계 엔진으로 이벤트를 전달한다.
+Falcosidekick은 Falco Alert를 다양한 외부 시스템으로 전달하는 팬아웃 컴포넌트다. SEKS에서는 SNS를 통해 Lambda 상관관계 엔진으로 이벤트를 전달한다.
 
 ```yaml
 # falcosidekick-config.yaml
 config:
   aws:
     sns:
-      topicarn: "arn:aws:sns:ap-northeast-2:ACCOUNT_ID:atdr-falco-alerts"
+      topicarn: "arn:aws:sns:ap-northeast-2:ACCOUNT_ID:seks-falco-alerts"
       region: "ap-northeast-2"
       minimumpriority: "warning"
       checkcert: true
 
   customfields:
-    cluster: "atdr-eks-cluster"
+    cluster: "seks-eks-cluster"
     environment: "production"
 
   outputfieldformat: "json"
@@ -391,7 +391,7 @@ Tetragon은 Cilium의 Hubble 관찰 플랫폼과 통합된다. Hubble은 네트�
 
 ```bash
 # Hubble CLI로 특정 pod의 네트워크 흐름 조회
-hubble observe --pod atdr/suspicious-pod --follow
+hubble observe --pod seks/suspicious-pod --follow
 
 # Tetragon 이벤트 스트림 조회
 kubectl exec -n kube-system ds/tetragon -c tetragon -- \
@@ -425,7 +425,7 @@ T+60s  GuardDuty: Extended Threat Detection - 다단계 공격 체인 인식
   "timestamp": "2025-05-04T12:34:56.789Z",
   "source": "falco | guardduty | tetragon",
   "severity": "critical | high | medium | low | info",
-  "cluster": "atdr-eks-cluster",
+  "cluster": "seks-eks-cluster",
   "namespace": "production",
   "pod": "web-deployment-7d9f8b-xk2p9",
   "node": "ip-10-0-1-42.ap-northeast-2.compute.internal",
@@ -478,7 +478,7 @@ GuardDuty Runtime Agent, Falco(modern_bpf), Tetragon은 모두 eBPF 기반이다
 ```hcl
 # EventBridge 규칙: GuardDuty MEDIUM 이상만 처리
 resource "aws_cloudwatch_event_rule" "guardduty_findings" {
-  name        = "atdr-guardduty-findings"
+  name        = "seks-guardduty-findings"
   description = "GuardDuty findings with severity >= MEDIUM"
 
   event_pattern = jsonencode({

@@ -22,24 +22,24 @@ def _signed_event(path, body):
 
 
 def test_verify_slack_signature_accepts_valid_signature(aws_mocks):
-    body = "command=%2Fatdr&text=status"
+    body = "command=%2Fseks&text=status"
     timestamp = str(int(time.time()))
 
     assert handler._verify_slack_signature(
         body,
         {"x-slack-request-timestamp": timestamp, "x-slack-signature": _signature(body, timestamp)},
-        "test-atdr",
+        "test-seks",
     )
 
 
 def test_verify_slack_signature_rejects_missing_or_old_signature(aws_mocks):
     body = "payload={}"
-    assert not handler._verify_slack_signature(body, {}, "test-atdr")
+    assert not handler._verify_slack_signature(body, {}, "test-seks")
     old_timestamp = str(int(time.time()) - handler.SLACK_TIMESTAMP_MAX_AGE - 10)
     assert not handler._verify_slack_signature(
         body,
         {"x-slack-request-timestamp": old_timestamp, "x-slack-signature": _signature(body, old_timestamp)},
-        "test-atdr",
+        "test-seks",
     )
 
 
@@ -115,27 +115,27 @@ def test_interactions_reject_action_writes_audit(aws_mocks, dynamodb_table, cont
 
 
 def test_commands_status_returns_blocks(aws_mocks, context):
-    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fatdr&text=status"), context)
+    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fseks&text=status"), context)
 
     response_body = json.loads(result["body"])
     assert "blocks" in response_body
     blocks_text = json.dumps(response_body["blocks"])
-    assert "ATDR System Status" in blocks_text
-    assert "atdr-demo" in blocks_text
+    assert "SEKS System Status" in blocks_text
+    assert "seks-demo" in blocks_text
 
 
 def test_commands_help_returns_blocks(aws_mocks, context):
-    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fatdr&text=help"), context)
+    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fseks&text=help"), context)
 
     response_body = json.loads(result["body"])
     assert "blocks" in response_body
     blocks_text = json.dumps(response_body["blocks"])
-    assert "ATDR Bot" in blocks_text
-    assert "/atdr status" in blocks_text
+    assert "SEKS Bot" in blocks_text
+    assert "/seks status" in blocks_text
 
 
 def test_commands_unknown_returns_error_blocks(aws_mocks, context):
-    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fatdr&text=foobar"), context)
+    result = handler.lambda_handler(_signed_event("/slack/commands", "command=%2Fseks&text=foobar"), context)
 
     response_body = json.loads(result["body"])
     assert "blocks" in response_body

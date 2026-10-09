@@ -237,7 +237,7 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
   }
 
   definition = jsonencode({
-    Comment = "ATDR AI Agent Pipeline"
+    Comment = "SEKS AI Agent Pipeline"
     StartAt = "SummaryAgent"
 
     States = {

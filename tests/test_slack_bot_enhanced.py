@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 from app.shared.config import Config
 from app.shared.dynamodb import IncidentStore
 from app.shared.slack_notifier import SlackNotifier, slack_api_call
-from app.slack_bot.commands import _dispatch_atdr
+from app.slack_bot.commands import _dispatch_seks
 from app.slack_bot.events import handle_events
 from app.slack_bot.home import build_home_view
 from app.slack_bot.interactions import handle_interactions
@@ -31,7 +31,7 @@ def test_incident_detail_command_shows_security_context(aws_mocks, dynamodb_tabl
         }
     }
 
-    result = _dispatch_atdr("incident inc-1", Config())
+    result = _dispatch_seks("incident inc-1", Config())
 
     blocks_text = json.dumps(_body(result)["blocks"])
     assert "Incident Detail" in blocks_text
@@ -46,8 +46,8 @@ def test_incidents_filters_by_status_and_severity(aws_mocks, dynamodb_table):
         "Items": [{"incident_id": "inc-2", "severity": "P2", "status": "open", "created_at": "2026-05-06T01:00:00Z"}]
     }
 
-    status_result = _dispatch_atdr("incidents open", Config())
-    severity_result = _dispatch_atdr("incidents P2", Config())
+    status_result = _dispatch_seks("incidents open", Config())
+    severity_result = _dispatch_seks("incidents P2", Config())
 
     assert "Open Incidents" in json.dumps(_body(status_result)["blocks"])
     assert "P2 Incidents" in json.dumps(_body(severity_result)["blocks"])
@@ -55,9 +55,9 @@ def test_incidents_filters_by_status_and_severity(aws_mocks, dynamodb_table):
 
 
 def test_oncall_ack_assign_resolve_commands_update_incident(aws_mocks, dynamodb_table):
-    ack = _dispatch_atdr("ack inc-1", Config())
-    assign = _dispatch_atdr("assign inc-1 <@U2>", Config())
-    resolve = _dispatch_atdr("resolve inc-1 contained", Config())
+    ack = _dispatch_seks("ack inc-1", Config())
+    assign = _dispatch_seks("assign inc-1 <@U2>", Config())
+    resolve = _dispatch_seks("resolve inc-1 contained", Config())
 
     assert "Incident Acknowledged" in json.dumps(_body(ack)["blocks"])
     assert "Incident Assigned" in json.dumps(_body(assign)["blocks"])
@@ -76,10 +76,10 @@ def test_ioc_evidence_timeline_and_guide_commands(aws_mocks, dynamodb_table, s3_
         }
     }
 
-    ioc = _dispatch_atdr("ioc inc-3", Config())
-    evidence = _dispatch_atdr("evidence inc-3", Config())
-    timeline = _dispatch_atdr("timeline inc-3", Config())
-    guide = _dispatch_atdr("guide dns", Config())
+    ioc = _dispatch_seks("ioc inc-3", Config())
+    evidence = _dispatch_seks("evidence inc-3", Config())
+    timeline = _dispatch_seks("timeline inc-3", Config())
+    guide = _dispatch_seks("guide dns", Config())
 
     assert "8.8.8.8" in json.dumps(_body(ioc)["blocks"])
     assert "Open evidence" in json.dumps(_body(evidence)["blocks"])
@@ -108,7 +108,7 @@ def test_report_daily_uses_store_stats(aws_mocks, dynamodb_table):
         ]
     }
 
-    result = _dispatch_atdr("report daily", Config())
+    result = _dispatch_seks("report daily", Config())
 
     blocks_text = json.dumps(_body(result)["blocks"])
     assert "Daily Security Report" in blocks_text
@@ -163,7 +163,7 @@ def test_home_view_shows_soc_dashboard(aws_mocks, dynamodb_table):
 
     text = json.dumps(view, ensure_ascii=False)
     assert view["type"] == "home"
-    assert "ATDR Security Operations Center" in text
+    assert "SEKS Security Operations Center" in text
     assert "inc-home" in text
     assert "View All Incidents" in text
     assert "Generate Report" in text
@@ -180,7 +180,7 @@ def test_app_home_opened_event_publishes_home(monkeypatch):
     )
 
     assert result["statusCode"] == 200
-    assert calls == [("U1", "test-atdr")]
+    assert calls == [("U1", "test-seks")]
 
 
 def test_home_buttons_open_modals_and_post_oncall(monkeypatch):
@@ -257,8 +257,8 @@ def test_shortcuts_open_status_and_ack_modals(monkeypatch):
         lambda method, payload, config: calls.append((method, payload)) or {"ok": True},
     )
 
-    status_payload = {"type": "shortcut", "callback_id": "atdr_view_status", "trigger_id": "ts", "user": {"id": "U1"}}
-    ack_payload = {"type": "shortcut", "callback_id": "atdr_ack_incident", "trigger_id": "ta", "user": {"id": "U1"}}
+    status_payload = {"type": "shortcut", "callback_id": "seks_view_status", "trigger_id": "ts", "user": {"id": "U1"}}
+    ack_payload = {"type": "shortcut", "callback_id": "seks_ack_incident", "trigger_id": "ta", "user": {"id": "U1"}}
     handle_interactions("payload=" + quote_plus(json.dumps(status_payload)), Config())
     handle_interactions("payload=" + quote_plus(json.dumps(ack_payload)), Config())
 

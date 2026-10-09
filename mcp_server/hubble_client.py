@@ -8,7 +8,7 @@ from flow import flow_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 from observer import observer_pb2, observer_pb2_grpc
 
-logger = logging.getLogger("atdr-remediation-mcp.hubble")
+logger = logging.getLogger("seks-remediation-mcp.hubble")
 
 DEFAULT_RELAY_TARGET = "hubble-relay.kube-system.svc.cluster.local:4245"
 DEFAULT_MAX_MESSAGE_SIZE = 50 * 1024 * 1024

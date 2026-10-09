@@ -27,7 +27,7 @@ class McpClient:
 
         payload = {
             "jsonrpc": "2.0",
-            "id": f"atdr-{tool_name}",
+            "id": f"seks-{tool_name}",
             "method": "tools/call",
             "params": {
                 "name": tool_name,

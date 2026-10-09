@@ -166,11 +166,11 @@ aws ssm send-command \
   --instance-ids <INSTANCE_ID> \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["ps auxf > /tmp/host-ps.txt && last > /tmp/host-last.txt && find /tmp /var/tmp -newer /proc/1 -type f 2>/dev/null > /tmp/host-tmpfiles.txt"]' \
-  --output-s3-bucket-name atdr-evidence-bucket \
+  --output-s3-bucket-name seks-evidence-bucket \
   --output-s3-key-prefix "incidents/<INCIDENT_ID>/node/"
 
 # 증거 S3 업로드
-aws s3 cp /tmp/evidence-* s3://atdr-evidence-bucket/incidents/<INCIDENT_ID>/
+aws s3 cp /tmp/evidence-* s3://seks-evidence-bucket/incidents/<INCIDENT_ID>/
 ```
 
 ### 3단계: 근본 원인 분석

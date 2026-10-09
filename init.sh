@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT="atdr"
+PROJECT="seks"
 REGION="us-east-1"
 BUCKET_NAME="${PROJECT}-tfstate"
 
-echo "=== ATDR Terraform Backend Bootstrap ==="
+echo "=== SEKS Terraform Backend Bootstrap ==="
 echo "Region: ${REGION}"
 echo "Bucket: ${BUCKET_NAME}"
 echo ""
@@ -38,10 +38,15 @@ if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
   echo "Bucket '${BUCKET_NAME}' already exists. Skipping creation."
 else
   echo "Creating S3 bucket '${BUCKET_NAME}'..."
-  aws s3api create-bucket \
-    --bucket "${BUCKET_NAME}" \
-    --region "${REGION}" \
-    --create-bucket-configuration LocationConstraint="${REGION}"
+  # us-east-1 rejects an explicit LocationConstraint; every other region requires it.
+  if [ "${REGION}" = "us-east-1" ]; then
+    aws s3api create-bucket --bucket "${BUCKET_NAME}" --region "${REGION}"
+  else
+    aws s3api create-bucket \
+      --bucket "${BUCKET_NAME}" \
+      --region "${REGION}" \
+      --create-bucket-configuration LocationConstraint="${REGION}"
+  fi
 
   aws s3api put-bucket-versioning \
     --bucket "${BUCKET_NAME}" \

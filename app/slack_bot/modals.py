@@ -28,7 +28,7 @@ def open_incident_filter_modal(
     view = {
         "type": "modal",
         "callback_id": "incident_filter_submit",
-        "title": {"type": "plain_text", "text": "ATDR Incidents"},
+        "title": {"type": "plain_text", "text": "SEKS Incidents"},
         "submit": {"type": "plain_text", "text": "Search"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "private_metadata": _metadata(channel_id, user_id),
@@ -58,7 +58,7 @@ def open_report_modal(trigger_id: str, config: Config, channel_id: str = "", use
     view = {
         "type": "modal",
         "callback_id": "report_generation_submit",
-        "title": {"type": "plain_text", "text": "ATDR Report"},
+        "title": {"type": "plain_text", "text": "SEKS Report"},
         "submit": {"type": "plain_text", "text": "Generate"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "private_metadata": _metadata(channel_id, user_id),
@@ -92,7 +92,7 @@ def open_status_modal(trigger_id: str, config: Config) -> dict[str, Any]:
     view = {
         "type": "modal",
         "callback_id": "status_view",
-        "title": {"type": "plain_text", "text": "ATDR Status"},
+        "title": {"type": "plain_text", "text": "SEKS Status"},
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": status_blocks(config.eks_cluster_name),
     }

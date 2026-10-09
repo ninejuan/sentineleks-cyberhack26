@@ -74,13 +74,13 @@ variable "dynamodb_table_name" {
 variable "mcp_auth_secret_id" {
   description = "Secrets Manager secret ID for the EKS MCP bearer token"
   type        = string
-  default     = "atdr/mcp/auth-token"
+  default     = "seks/mcp/auth-token"
 }
 
 variable "mcp_server_url_secret_id" {
   description = "Secrets Manager secret ID containing the private EKS MCP server URL"
   type        = string
-  default     = "atdr/mcp/server-url"
+  default     = "seks/mcp/server-url"
 }
 
 variable "forensics_bucket_name" {

@@ -8,7 +8,7 @@
 
 ### 증거 보전 원칙
 
-포렌식 준비(Forensic Readiness)는 인시던트가 발생하기 전에 증거 수집과 보전 체계를 갖추는 것이다. ATDR은 세 가지 원칙을 기반으로 포렌식 파이프라인을 설계한다.
+포렌식 준비(Forensic Readiness)는 인시던트가 발생하기 전에 증거 수집과 보전 체계를 갖추는 것이다. SEKS은 세 가지 원칙을 기반으로 포렌식 파이프라인을 설계한다.
 
 | 원칙 | 설명 | 구현 |
 |------|------|------|
@@ -43,7 +43,7 @@ S3 Object Lock 저장 (타임스탬프 + SHA-256)
 
 ### 포렌식 심도 계층
 
-ATDR의 포렌식 전략은 모든 환경에서 안정적으로 동작하는 기본 경로와, 더 깊은 분석을 제공하는 선택 경로를 분리한다. 핵심 대응 경로는 특정 노드 런타임 기능에 의존하지 않아야 하며, 고급 포렌식 기능이 실패해도 증거 수집과 대응 흐름은 계속 진행되어야 한다.
+SEKS의 포렌식 전략은 모든 환경에서 안정적으로 동작하는 기본 경로와, 더 깊은 분석을 제공하는 선택 경로를 분리한다. 핵심 대응 경로는 특정 노드 런타임 기능에 의존하지 않아야 하며, 고급 포렌식 기능이 실패해도 증거 수집과 대응 흐름은 계속 진행되어야 한다.
 
 | 계층 | 이름 | 목적 | 기본 상태 | 실패 시 처리 |
 |------|------|------|-----------|--------------|
@@ -52,7 +52,7 @@ ATDR의 포렌식 전략은 모든 환경에서 안정적으로 동작하는 기
 | Advanced | Ephemeral Container Live Forensics | 실행 중인 파드의 프로세스/네트워크/파일 상태를 제한된 프로파일로 수집 | 승인 기반 선택 실행 | 미지원/실패 사유를 기록하고 Core evidence로 fallback |
 | Experimental | CRIU Container Checkpoint | 지원 노드에서 컨테이너 메모리/프로세스 상태를 checkpoint로 보존 | 명시적 승인 기반 실험 기능 | `unsupported` 또는 실패 사유를 기록하고 live forensics/Core evidence로 fallback |
 
-이 계층화의 목적은 CRIU 같은 고위험 기능을 핵심 성공 조건으로 만들지 않는 것이다. ATDR의 기본 완성도는 Evidence Bundle과 Forensic Synthesis에서 확보하고, CRIU는 호환 노드에서 더 깊은 보존을 제공하는 선택 기능으로 다룬다.
+이 계층화의 목적은 CRIU 같은 고위험 기능을 핵심 성공 조건으로 만들지 않는 것이다. SEKS의 기본 완성도는 Evidence Bundle과 Forensic Synthesis에서 확보하고, CRIU는 호환 노드에서 더 깊은 보존을 제공하는 선택 기능으로 다룬다.
 
 ### Evidence-aware Remediation 순서
 
@@ -72,7 +72,7 @@ ATDR의 포렌식 전략은 모든 환경에서 안정적으로 동작하는 기
 
 ### Forensic Synthesis Agent
 
-증거를 많이 저장하는 것만으로는 분석 자동화가 완성되지 않는다. ATDR은 수집된 증거를 AI가 읽고, 사람이 검토 가능한 분석 산출물로 재구성하는 Forensic Synthesis Agent를 둔다.
+증거를 많이 저장하는 것만으로는 분석 자동화가 완성되지 않는다. SEKS은 수집된 증거를 AI가 읽고, 사람이 검토 가능한 분석 산출물로 재구성하는 Forensic Synthesis Agent를 둔다.
 
 입력 증거는 다음을 포함한다.
 
@@ -104,7 +104,7 @@ incidents/{incident_id}/ai/
 
 ### Hubble Relay TLS 운영
 
-`capture_hubble_flows`는 `hubble-relay.kube-system.svc.cluster.local:4245`로 gRPC 호출한다. Cilium Helm 기본값은 `hubble.tls.auto.enabled=true`이며 relay가 mTLS를 요구한다. ATDR은 기본적으로 MCP 서버 env `HUBBLE_TLS_ENABLED=false`로 운영한다. 운영 선택지:
+`capture_hubble_flows`는 `hubble-relay.kube-system.svc.cluster.local:4245`로 gRPC 호출한다. Cilium Helm 기본값은 `hubble.tls.auto.enabled=true`이며 relay가 mTLS를 요구한다. SEKS은 기본적으로 MCP 서버 env `HUBBLE_TLS_ENABLED=false`로 운영한다. 운영 선택지:
 
 | 모드 | 설정 | 트레이드오프 |
 |------|------|-------------|
@@ -119,25 +119,25 @@ incidents/{incident_id}/ai/
 
 ### 왜 GOVERNANCE 모드를 쓰는가
 
-S3 Object Lock은 `GOVERNANCE`와 `COMPLIANCE` 두 가지 모드를 지원한다. ATDR은 **GOVERNANCE**를 선택한다.
+S3 Object Lock은 `GOVERNANCE`와 `COMPLIANCE` 두 가지 모드를 지원한다. SEKS은 **GOVERNANCE**를 선택한다.
 
-| 모드 | 설명 | ATDR 적합성 |
+| 모드 | 설명 | SEKS 적합성 |
 |------|------|------|
 | COMPLIANCE | 루트 사용자도 retention 해제 불가. 보존 기간이 끝날 때까지 어떤 방법으로도 삭제할 수 없다. | ❌ 데모/스테이징 환경에서 `make infra-down` → `make infra-up` 같은 반복 teardown이 불가능해진다. 버킷 자체를 지울 수 없어 Terraform destroy가 영구 실패한다. |
 | GOVERNANCE | `s3:BypassGovernanceRetention` 권한을 가진 특별 사용자(관리자)만 retention을 해제할 수 있다. 일반 사용자는 여전히 삭제 불가. | ✅ 평시 불변성은 유지하되, 환경 재구성(`infra-down`)이 가능하다. `make infra-down-preflight`가 bypass 권한으로 객체를 드레인한 뒤 버킷을 파괴한다. |
 
-실운영 환경에서는 COMPLIANCE가 권장되는 경우가 많지만, ATDR은 평가·데모·재현 환경까지 같은 Terraform/Makefile로 관리한다는 전제 하에 **GOVERNANCE + 관리자 bypass**로 균형을 잡는다. 이 결정은 Makefile의 `infra-down-preflight` target이 `aws s3api delete-object --bypass-governance-retention`으로 버킷을 비우는 동작과 짝을 이룬다.
+실운영 환경에서는 COMPLIANCE가 권장되는 경우가 많지만, SEKS은 평가·데모·재현 환경까지 같은 Terraform/Makefile로 관리한다는 전제 하에 **GOVERNANCE + 관리자 bypass**로 균형을 잡는다. 이 결정은 Makefile의 `infra-down-preflight` target이 `aws s3api delete-object --bypass-governance-retention`으로 버킷을 비우는 동작과 짝을 이룬다.
 
 일반 Lambda/MCP ServiceRole에는 bypass 권한을 부여하지 않는다. 인시던트 대응 중 실수나 LLM 환각으로 증거가 삭제될 위험은 여전히 막힌다.
 
 ```
 이벤트 원본 데이터
     │
-    ├── GuardDuty Findings    ──► s3://atdr-forensics/guardduty/
-    ├── Falco 이벤트          ──► s3://atdr-forensics/falco/
-    ├── EKS Audit Logs        ──► s3://atdr-forensics/eks-audit/
-    ├── CloudTrail            ──► s3://atdr-forensics/cloudtrail/
-    └── Hubble 플로우         ──► s3://atdr-forensics/hubble/
+    ├── GuardDuty Findings    ──► s3://seks-forensics/guardduty/
+    ├── Falco 이벤트          ──► s3://seks-forensics/falco/
+    ├── EKS Audit Logs        ──► s3://seks-forensics/eks-audit/
+    ├── CloudTrail            ──► s3://seks-forensics/cloudtrail/
+    └── Hubble 플로우         ──► s3://seks-forensics/hubble/
 ```
 
 ### Terraform 설정
@@ -146,10 +146,10 @@ S3 Object Lock은 `GOVERNANCE`와 `COMPLIANCE` 두 가지 모드를 지원한다
 # terraform/forensics/s3.tf
 
 resource "aws_s3_bucket" "forensics" {
-  bucket = "atdr-forensics-${var.account_id}"
+  bucket = "seks-forensics-${var.account_id}"
 
   tags = {
-    Project     = "atdr"
+    Project     = "seks"
     Purpose     = "forensics"
     Compliance  = "7year-retention"
   }
@@ -201,7 +201,7 @@ resource "aws_s3_bucket_public_access_block" "forensics" {
 
 # KMS 키
 resource "aws_kms_key" "forensics" {
-  description             = "ATDR forensics data encryption key"
+  description             = "SEKS forensics data encryption key"
   deletion_window_in_days = 30
   enable_key_rotation     = true
 
@@ -340,7 +340,7 @@ CloudTrail Lake는 EKS 감사 로그를 포함한 AWS API 호출 이력을 SQL�
 # terraform/forensics/cloudtrail-lake.tf
 
 resource "aws_cloudtrail_event_data_store" "main" {
-  name                 = "atdr-forensics-lake"
+  name                 = "seks-forensics-lake"
   retention_period     = 2555  # 7년 (일 단위)
   multi_region_enabled = true
   organization_enabled = false
@@ -370,7 +370,7 @@ resource "aws_cloudtrail_event_data_store" "main" {
   }
 
   tags = {
-    Project    = "atdr"
+    Project    = "seks"
     Purpose    = "forensics"
     Retention  = "7years"
   }
@@ -387,7 +387,7 @@ SELECT
   requestParameters,
   sourceIPAddress,
   userAgent
-FROM atdr-forensics-lake
+FROM seks-forensics-lake
 WHERE
   eventSource = 'eks.amazonaws.com'
   AND eventName = 'CreatePodExecOptions'
@@ -403,7 +403,7 @@ SELECT
   responseElements,
   errorCode,
   errorMessage
-FROM atdr-forensics-lake
+FROM seks-forensics-lake
 WHERE
   userIdentity.arn LIKE '%payment-service%'
   AND eventTime BETWEEN '2026-05-04 09:00:00' AND '2026-05-04 11:00:00'
@@ -416,7 +416,7 @@ SELECT
   eventName,
   sourceIPAddress,
   errorCode
-FROM atdr-forensics-lake
+FROM seks-forensics-lake
 WHERE
   eventName IN (
     'AttachRolePolicy',
@@ -436,7 +436,7 @@ SELECT
   userIdentity.sessionContext.sessionIssuer.arn AS role_arn,
   userIdentity.sessionContext.webIdFederationData.federatedUserId AS pod_identity,
   sourceIPAddress
-FROM atdr-forensics-lake
+FROM seks-forensics-lake
 WHERE
   userIdentity.type = 'AssumedRole'
   AND userIdentity.sessionContext.webIdFederationData.federatedUserId
@@ -450,7 +450,7 @@ SELECT
   userIdentity.arn,
   eventName,
   requestParameters
-FROM atdr-forensics-lake
+FROM seks-forensics-lake
 WHERE
   eventName LIKE 'Delete%'
   AND eventTime >= DATEADD(hour, -24, NOW())
@@ -465,7 +465,7 @@ ORDER BY eventTime DESC;
 
 컨테이너 체크포인트는 의심스러운 컨테이너의 메모리와 프로세스 상태를 보존할 수 있는 고급 포렌식 기능이다. 성공하면 일반 로그나 이벤트만으로는 확인하기 어려운 휘발성 증거(메모리 내 payload, 열린 파일 디스크립터, 프로세스 상태)를 남길 수 있다.
 
-다만 EKS에서 CRIU 기반 체크포인트는 노드 OS, containerd/CRI 설정, kubelet feature gate, 권한 모델에 강하게 의존한다. 따라서 ATDR은 이 기능을 기본 대응 경로가 아니라 **명시적 승인 기반 Experimental mode**로 제공한다. 체크포인트 실패는 인시던트 대응 실패가 아니며, 시스템은 실패 사유를 기록하고 Evidence Bundle / Ephemeral Container Live Forensics 경로로 fallback한다.
+다만 EKS에서 CRIU 기반 체크포인트는 노드 OS, containerd/CRI 설정, kubelet feature gate, 권한 모델에 강하게 의존한다. 따라서 SEKS은 이 기능을 기본 대응 경로가 아니라 **명시적 승인 기반 Experimental mode**로 제공한다. 체크포인트 실패는 인시던트 대응 실패가 아니며, 시스템은 실패 사유를 기록하고 Evidence Bundle / Ephemeral Container Live Forensics 경로로 fallback한다.
 
 ### 설계 원칙
 
@@ -493,7 +493,7 @@ EKS 관리형 노드 그룹에서 시도하는 경우 별도 forensics-enabled �
 
 ```bash
 #!/bin/bash
-/etc/eks/bootstrap.sh atdr \
+/etc/eks/bootstrap.sh seks \
   --kubelet-extra-args '--feature-gates=ContainerCheckpoint=true'
 ```
 
@@ -514,7 +514,7 @@ from pathlib import Path
 
 KUBELET_API = "https://localhost:10250"
 CHECKPOINT_DIR = Path("/var/lib/kubelet/checkpoints")
-  S3_BUCKET = "atdr-forensics-{account_id}"
+  S3_BUCKET = "seks-forensics-{account_id}"
 
 def create_checkpoint(namespace: str, pod: str, container: str, incident_id: str) -> dict:
     """의심 컨테이너 체크포인트 생성 후 S3에 저장"""
@@ -593,7 +593,7 @@ def create_checkpoint(namespace: str, pod: str, container: str, incident_id: str
 ```bash
 # 1. S3에서 체크포인트 다운로드
 aws s3 cp \
-  s3://atdr-forensics/checkpoints/inc-001/production/payment-service/app/20260504T100000Z.tar \
+  s3://seks-forensics/checkpoints/inc-001/production/payment-service/app/20260504T100000Z.tar \
   /tmp/checkpoint.tar
 
 # 2. 체크포인트 무결성 검증
@@ -633,7 +633,7 @@ Falco 이벤트가 발생하면 즉시 체크포인트를 생성하지 않는다
 # k8s/base/falco/falcosidekick-values.yaml (추가)
 config:
   webhook:
-    address: "http://forensics-agent.atdr.svc.cluster.local:8080/checkpoint"
+    address: "http://forensics-agent.seks.svc.cluster.local:8080/checkpoint"
     minimumpriority: "critical"
     customHeaders: "X-Source:falco"
 ```
@@ -714,7 +714,7 @@ hubble observe \
 
 # S3에 보존
 aws s3 cp /tmp/flows-incident-001.json \
-  s3://atdr-forensics/hubble/inc-20260504-001/flows.json \
+  s3://seks-forensics/hubble/inc-20260504-001/flows.json \
   --sse aws:kms
 ```
 
@@ -774,7 +774,7 @@ from observer_pb2_grpc import ObserverStub
 from flow_pb2 import FlowFilter
 
 HUBBLE_RELAY = "hubble-relay.kube-system.svc.cluster.local:4245"
-  S3_BUCKET = "atdr-forensics"
+  S3_BUCKET = "seks-forensics"
 
 def stream_flows_to_s3():
     channel = grpc.insecure_channel(HUBBLE_RELAY)
@@ -1132,7 +1132,7 @@ def create_custody_record(incident_id: str, evidence_manifest: dict) -> str:
         if evidence_info and "s3_key" in evidence_info:
             try:
                 retention = s3.get_object_retention(
-  Bucket="atdr-forensics",
+  Bucket="seks-forensics",
                     Key=evidence_info["s3_key"]
                 )
                 evidence_status.append({
@@ -1158,7 +1158,7 @@ def create_custody_record(incident_id: str, evidence_manifest: dict) -> str:
     }
 
     s3.put_object(
-  Bucket="atdr-forensics",
+  Bucket="seks-forensics",
         Key=f"custody/{incident_id}/chain-of-custody.json",
         Body=json.dumps(custody_record, indent=2, default=str),
         ServerSideEncryption="aws:kms"
@@ -1202,7 +1202,7 @@ def generate_forensics_report(incident_id: str, analysis_result: dict) -> str:
 
 ## 증거 무결성 확인
 모든 증거 파일은 S3 Object Lock(GOVERNANCE, 7년)으로 보호됩니다.
-Chain of Custody: s3://atdr-forensics/custody/{incident_id}/chain-of-custody.json
+Chain of Custody: s3://seks-forensics/custody/{incident_id}/chain-of-custody.json
 """
 
     # 보고서를 S3에 저장

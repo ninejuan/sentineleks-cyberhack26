@@ -1,4 +1,4 @@
-# ATDR: AI-Driven Threat Detection and Response for EKS
+# SEKS: AI-Driven Threat Detection and Response for EKS
 
 > 내부 설계 문서 v0.1 | 2026-05-04 | 팀 4인 | 8주 캡스톤
 
@@ -6,11 +6,11 @@
 
 ## 1. 프로젝트 개요
 
-ATDR(AI-Driven Threat Detection and Response)은 AWS EKS 환경에서 발생하는 보안 위협을 AI로 탐지·분석·대응하는 시스템이다.
+SEKS(AI-Driven Threat Detection and Response)은 AWS EKS 환경에서 발생하는 보안 위협을 AI로 탐지·분석·대응하는 시스템이다.
 
 기존 보안 도구들은 각자의 시그널을 독립적으로 발생시킨다. GuardDuty는 Finding을 내고, Falco는 런타임 이벤트를 뱉고, VPC Flow Logs는 네트워크 흐름을 기록한다. 이 시그널들을 연결해서 "지금 무슨 일이 벌어지고 있는가"를 판단하는 건 결국 사람 몫이다.
 
-ATDR은 그 판단 과정을 자동화한다. CloudTrail, DNS Logs, VPC Flow Logs, EKS Audit Logs, Falco 런타임 이벤트를 단일 파이프라인으로 수집하고, Bedrock 기반 AI 에이전트 체인이 요약→트리아지→해결책 탐색→대응 실행까지 처리한다. 사람은 Slack에서 승인 버튼 하나로 개입하거나, 자연어로 현황을 조회한다.
+SEKS은 그 판단 과정을 자동화한다. CloudTrail, DNS Logs, VPC Flow Logs, EKS Audit Logs, Falco 런타임 이벤트를 단일 파이프라인으로 수집하고, Bedrock 기반 AI 에이전트 체인이 요약→트리아지→해결책 탐색→대응 실행까지 처리한다. 사람은 Slack에서 승인 버튼 하나로 개입하거나, 자연어로 현황을 조회한다.
 
 학교 캡스톤 프로젝트지만 실제 AWS 계정에 배포하고 실제 공격 시나리오를 돌린다.
 
@@ -41,7 +41,7 @@ crypto-miner 파드 실행 시나리오:
 - 대응 액션(NetworkPolicy 적용, 파드 격리)을 직접 실행
 - 인시던트 하나당 평균 수십 분 소요
 
-ATDR이 목표로 하는 건 이 흐름을 5분 이내로 줄이는 것이다.
+SEKS이 목표로 하는 건 이 흐름을 5분 이내로 줄이는 것이다.
 
 ---
 

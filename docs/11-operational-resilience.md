@@ -1,12 +1,12 @@
 # 11. 운영 안정성 설계 (Operational Resilience)
 
-> 내부 설계 문서 v0.1 | 2026-05-04 | ATDR 캡스톤
+> 내부 설계 문서 v0.1 | 2026-05-04 | SEKS 캡스톤
 
 ---
 
-## 11.1 ATDR 자체 장애 대응 (Self-Failure Handling)
+## 11.1 SEKS 자체 장애 대응 (Self-Failure Handling)
 
-ATDR 파이프라인 자체가 장애를 일으킬 수 있다. AI 분석이 실패하더라도 탐지 알림은 반드시 전달되어야 한다. 설계 원칙은 하나다.
+SEKS 파이프라인 자체가 장애를 일으킬 수 있다. AI 분석이 실패하더라도 탐지 알림은 반드시 전달되어야 한다. 설계 원칙은 하나다.
 
 > **탐지 전달이 분석 품질보다 우선한다.**
 
@@ -30,12 +30,12 @@ Step Functions Express Workflow에서 각 AI 에이전트 상태에 retry와 cat
 
 ```json
 {
-  "Comment": "ATDR AI Agent Workflow",
+  "Comment": "SEKS AI Agent Workflow",
   "StartAt": "TriageAgent",
   "States": {
     "TriageAgent": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${region}:${account}:function:atdr-triage-agent",
+      "Resource": "arn:aws:lambda:${region}:${account}:function:seks-triage-agent",
       "Retry": [
         {
           "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
@@ -55,7 +55,7 @@ Step Functions Express Workflow에서 각 AI 에이전트 상태에 retry와 cat
     },
     "DegradedSlackNotify": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${region}:${account}:function:atdr-slack-notifier",
+      "Resource": "arn:aws:lambda:${region}:${account}:function:seks-slack-notifier",
       "Parameters": {
         "mode": "degraded",
         "raw_alert.$": "$.raw_alert",
@@ -73,7 +73,7 @@ AI 분석 없이 전송되는 알림은 아래 형태를 따른다.
 
 ```json
 {
-  "text": "[ATDR DEGRADED] AI 분석 실패 - 원본 알림 전달",
+  "text": "[SEKS DEGRADED] AI 분석 실패 - 원본 알림 전달",
   "blocks": [
     {
       "type": "header",
@@ -234,7 +234,7 @@ resource "aws_cloudwatch_log_metric_filter" "bedrock_throttling" {
 
   metric_transformation {
     name      = "BedrockThrottlingCount"
-    namespace = "ATDR/Bedrock"
+    namespace = "SEKS/Bedrock"
     value     = "1"
   }
 }
@@ -244,7 +244,7 @@ resource "aws_cloudwatch_metric_alarm" "bedrock_throttling" {
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "BedrockThrottlingCount"
-  namespace           = "ATDR/Bedrock"
+  namespace           = "SEKS/Bedrock"
   period              = 300
   statistic           = "Sum"
   threshold           = 5
@@ -254,7 +254,7 @@ resource "aws_cloudwatch_metric_alarm" "bedrock_throttling" {
 
 ### 모니터링 항목
 
-- `BedrockThrottlingCount` (ATDR/Bedrock 네임스페이스): 5분 내 5회 초과 시 알람
+- `BedrockThrottlingCount` (SEKS/Bedrock 네임스페이스): 5분 내 5회 초과 시 알람
 - Step Functions `ExecutionsFailed`: degraded 전환 빈도 추적
 - Lambda `Duration` P99: Bedrock 응답 지연 감지
 
@@ -321,7 +321,7 @@ jobs:
         run: |
           curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"text": "[ATDR DRIFT] Terraform 상태와 실제 인프라가 다릅니다. 즉시 확인하세요."}'
+            -d '{"text": "[SEKS DRIFT] Terraform 상태와 실제 인프라가 다릅니다. 즉시 확인하세요."}'
 ```
 
 ### EventBridge 고위험 변경 감지
@@ -545,7 +545,7 @@ resource "aws_dynamodb_table" "approval_audit" {
 
 ```bash
 # 데모 전 백업 스크립트
-PROJECT="atdr"
+PROJECT="seks"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 aws dynamodb create-backup \
@@ -574,8 +574,8 @@ backup-before-demo:
 
 ```bash
 aws dynamodb export-table-to-point-in-time \
-  --table-arn "arn:aws:dynamodb:ap-northeast-2:${ACCOUNT_ID}:table/atdr-incidents" \
-  --s3-bucket "atdr-logs-${ACCOUNT_ID}" \
+  --table-arn "arn:aws:dynamodb:ap-northeast-2:${ACCOUNT_ID}:table/seks-incidents" \
+  --s3-bucket "seks-logs-${ACCOUNT_ID}" \
   --s3-prefix "dynamodb-exports/incidents/" \
   --export-format "DYNAMODB_JSON"
 ```

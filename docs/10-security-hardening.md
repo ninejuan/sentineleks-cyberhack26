@@ -1,6 +1,6 @@
 # 보안 강화 설계
 
-> ATDR — EKS 보안 강화 설계 문서
+> SEKS — EKS 보안 강화 설계 문서
 > 문서 버전: 0.1 | 작성일: 2026-05-04 | 대상 독자: 개발팀 (4인)
 
 ---
@@ -21,7 +21,7 @@
 
 ## 1. 보안 강화 전략 개요
 
-ATDR 시스템의 보안 강화는 Prevention → Detection → Response → Forensics 사이클을 기반으로 설계한다. 각 단계는 독립적으로 동작하지만, 앞 단계의 실패를 뒤 단계가 보완하는 심층 방어(defense-in-depth) 구조를 이룬다.
+SEKS 시스템의 보안 강화는 Prevention → Detection → Response → Forensics 사이클을 기반으로 설계한다. 각 단계는 독립적으로 동작하지만, 앞 단계의 실패를 뒤 단계가 보완하는 심층 방어(defense-in-depth) 구조를 이룬다.
 
 ### 1.1 사이클 개요
 
@@ -129,7 +129,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: ai-detector-l7
-  namespace: atdr
+  namespace: seks
 spec:
   endpointSelector:
     matchLabels:
@@ -154,7 +154,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: response-advisor-grpc
-  namespace: atdr
+  namespace: seks
 spec:
   endpointSelector:
     matchLabels:
@@ -196,16 +196,16 @@ Hubble은 Cilium의 네트워크 관측성 레이어다. eBPF로 수집한 플�
 
 ```bash
 # Hubble CLI로 실시간 플로우 확인
-hubble observe --namespace atdr --follow
+hubble observe --namespace seks --follow
 
 # 드롭된 패킷만 필터링
-hubble observe --namespace atdr --verdict DROPPED
+hubble observe --namespace seks --verdict DROPPED
 
 # 특정 Pod의 트래픽
-hubble observe --pod atdr/ai-detector-xxx --follow
+hubble observe --pod seks/ai-detector-xxx --follow
 ```
 
-Hubble UI는 네임스페이스 간 트래픽 흐름을 시각화한다. ATDR에서는 Grafana 대시보드와 연동해 비정상 플로우를 탐지 파이프라인으로 전달한다.
+Hubble UI는 네임스페이스 간 트래픽 흐름을 시각화한다. SEKS에서는 Grafana 대시보드와 연동해 비정상 플로우를 탐지 파이프라인으로 전달한다.
 
 ---
 
@@ -300,7 +300,7 @@ spec:
   matchResources:
     namespaceSelector:
       matchLabels:
-        security.atdr/digest-required: "true"
+        security.seks/digest-required: "true"
 ```
 
 ### 3.4 privileged container 차단
@@ -420,7 +420,7 @@ spec:
   matchResources:
     namespaceSelector:
       matchLabels:
-        security.atdr/enforce-nonroot: "true"
+        security.seks/enforce-nonroot: "true"
 ```
 
 ---
@@ -443,17 +443,17 @@ EKS Access Entry는 aws-auth ConfigMap을 대체하는 API 기반 접근 제어 
 
 ```
 보안팀 (security-team)
-  IAM Role: arn:aws:iam::ACCOUNT:role/atdr-security-team
+  IAM Role: arn:aws:iam::ACCOUNT:role/seks-security-team
   접근 범위: cluster-wide read-only
-  Kubernetes Group: atdr:security-readonly
+  Kubernetes Group: seks:security-readonly
 
 개발팀 (dev-team)
-  IAM Role: arn:aws:iam::ACCOUNT:role/atdr-dev-team
-  접근 범위: atdr 네임스페이스 edit
-  Kubernetes Group: atdr:dev-edit
+  IAM Role: arn:aws:iam::ACCOUNT:role/seks-dev-team
+  접근 범위: seks 네임스페이스 edit
+  Kubernetes Group: seks:dev-edit
 
 Break-glass (긴급 대응)
-  IAM Role: arn:aws:iam::ACCOUNT:role/atdr-break-glass
+  IAM Role: arn:aws:iam::ACCOUNT:role/seks-break-glass
   접근 범위: system:masters (전체 권한)
   조건: MFA 필수, CloudTrail 알림 연동
 ```
@@ -471,7 +471,7 @@ locals {
 # 보안팀: cluster-wide read-only
 resource "aws_eks_access_entry" "security_team" {
   cluster_name  = local.cluster_name
-  principal_arn = "arn:aws:iam::${local.account_id}:role/atdr-security-team"
+  principal_arn = "arn:aws:iam::${local.account_id}:role/seks-security-team"
   type          = "STANDARD"
 
   tags = {
@@ -490,10 +490,10 @@ resource "aws_eks_access_policy_association" "security_team_view" {
   }
 }
 
-# 개발팀: atdr 네임스페이스 edit
+# 개발팀: seks 네임스페이스 edit
 resource "aws_eks_access_entry" "dev_team" {
   cluster_name  = local.cluster_name
-  principal_arn = "arn:aws:iam::${local.account_id}:role/atdr-dev-team"
+  principal_arn = "arn:aws:iam::${local.account_id}:role/seks-dev-team"
   type          = "STANDARD"
 
   tags = {
@@ -509,14 +509,14 @@ resource "aws_eks_access_policy_association" "dev_team_edit" {
 
   access_scope {
     type       = "namespace"
-    namespaces = ["atdr"]
+    namespaces = ["seks"]
   }
 }
 
 # Break-glass: system:masters (긴급용, 평소 비활성화)
 resource "aws_eks_access_entry" "break_glass" {
   cluster_name  = local.cluster_name
-  principal_arn = "arn:aws:iam::${local.account_id}:role/atdr-break-glass"
+  principal_arn = "arn:aws:iam::${local.account_id}:role/seks-break-glass"
   type          = "STANDARD"
 
   # kubernetes_groups에 system:masters를 직접 매핑
@@ -531,7 +531,7 @@ resource "aws_eks_access_entry" "break_glass" {
 
 # Break-glass 사용 시 CloudWatch 알람 트리거를 위한 EventBridge 규칙
 resource "aws_cloudwatch_event_rule" "break_glass_usage" {
-  name        = "atdr-break-glass-usage"
+  name        = "seks-break-glass-usage"
   description = "Break-glass 역할 사용 감지"
 
   event_pattern = jsonencode({
@@ -541,7 +541,7 @@ resource "aws_cloudwatch_event_rule" "break_glass_usage" {
       eventSource = ["sts.amazonaws.com"]
       eventName   = ["AssumeRole"]
       requestParameters = {
-        roleArn = ["arn:aws:iam::${local.account_id}:role/atdr-break-glass"]
+        roleArn = ["arn:aws:iam::${local.account_id}:role/seks-break-glass"]
       }
     }
   })
@@ -563,7 +563,7 @@ Access Entry의 `kubernetes_groups`와 연결되는 ClusterRole을 별도로 정
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: atdr-security-readonly
+  name: seks-security-readonly
 rules:
 - apiGroups: [""]
   resources: ["pods", "services", "endpoints", "namespaces", "nodes", "events"]
@@ -581,14 +581,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: atdr-security-readonly-binding
+  name: seks-security-readonly-binding
 subjects:
 - kind: Group
-  name: atdr:security-readonly
+  name: seks:security-readonly
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
-  name: atdr-security-readonly
+  name: seks-security-readonly
   apiGroup: rbac.authorization.k8s.io
 ```
 
@@ -612,24 +612,24 @@ EKS Pod Identity는 IRSA(IAM Roles for Service Accounts)를 대체한다. OIDC �
 
 ```
 ai-detector
-  역할: atdr-ai-detector
+  역할: seks-ai-detector
   권한: bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream
         s3:GetObject (knowledge-base 버킷만)
         logs:CreateLogGroup, logs:PutLogEvents
 
 correlator
-  역할: atdr-correlator
-  권한: sqs:ReceiveMessage, sqs:DeleteMessage (atdr-events 큐만)
+  역할: seks-correlator
+  권한: sqs:ReceiveMessage, sqs:DeleteMessage (seks-events 큐만)
         dynamodb:GetItem, dynamodb:PutItem (correlation-state 테이블만)
 
 response-advisor
-  역할: atdr-response-advisor
+  역할: seks-response-advisor
   권한: eks:DescribeCluster
         eks:ListNodegroups
         ssm:GetParameter (remediation-config만)
 
 remediation-executor
-  역할: atdr-remediation-executor
+  역할: seks-remediation-executor
   권한: eks:UpdateNodegroupConfig
         ec2:DescribeInstances
         sns:Publish (security-alerts 토픽만)
@@ -652,7 +652,7 @@ resource "aws_eks_addon" "pod_identity" {
 
 # ai-detector IAM 역할
 resource "aws_iam_role" "ai_detector" {
-  name = "atdr-ai-detector-${var.environment}"
+  name = "seks-ai-detector-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -677,7 +677,7 @@ resource "aws_iam_role" "ai_detector" {
 }
 
 resource "aws_iam_role_policy" "ai_detector" {
-  name = "atdr-ai-detector-policy"
+  name = "seks-ai-detector-policy"
   role = aws_iam_role.ai_detector.id
 
   policy = jsonencode({
@@ -706,7 +706,7 @@ resource "aws_iam_role_policy" "ai_detector" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.region}:${local.account_id}:log-group:/atdr/ai-detector:*"
+        Resource = "arn:aws:logs:${var.region}:${local.account_id}:log-group:/seks/ai-detector:*"
       }
     ]
   })
@@ -715,14 +715,14 @@ resource "aws_iam_role_policy" "ai_detector" {
 # Pod Identity 연결
 resource "aws_eks_pod_identity_association" "ai_detector" {
   cluster_name    = var.cluster_name
-  namespace       = "atdr"
+  namespace       = "seks"
   service_account = "ai-detector"
   role_arn        = aws_iam_role.ai_detector.arn
 }
 
 # correlator IAM 역할
 resource "aws_iam_role" "correlator" {
-  name = "atdr-correlator-${var.environment}"
+  name = "seks-correlator-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -742,7 +742,7 @@ resource "aws_iam_role" "correlator" {
 }
 
 resource "aws_iam_role_policy" "correlator" {
-  name = "atdr-correlator-policy"
+  name = "seks-correlator-policy"
   role = aws_iam_role.correlator.id
 
   policy = jsonencode({
@@ -755,7 +755,7 @@ resource "aws_iam_role_policy" "correlator" {
           "sqs:DeleteMessage",
           "sqs:GetQueueAttributes"
         ]
-        Resource = aws_sqs_queue.atdr_events.arn
+        Resource = aws_sqs_queue.seks_events.arn
       },
       {
         Effect = "Allow"
@@ -773,7 +773,7 @@ resource "aws_iam_role_policy" "correlator" {
 
 resource "aws_eks_pod_identity_association" "correlator" {
   cluster_name    = var.cluster_name
-  namespace       = "atdr"
+  namespace       = "seks"
   service_account = "correlator"
   role_arn        = aws_iam_role.correlator.arn
 }
@@ -789,7 +789,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: ai-detector
-  namespace: atdr
+  namespace: seks
   # IRSA와 달리 어노테이션 불필요
 automountServiceAccountToken: true
 ```
@@ -848,7 +848,7 @@ resource "aws_kms_key" "eks_secrets" {
 }
 
 resource "aws_kms_alias" "eks_secrets" {
-  name          = "alias/atdr-eks-secrets-${var.environment}"
+  name          = "alias/seks-eks-secrets-${var.environment}"
   target_key_id = aws_kms_key.eks_secrets.key_id
 }
 
@@ -887,13 +887,13 @@ resource "aws_kms_key" "s3" {
 }
 
 resource "aws_kms_alias" "s3" {
-  name          = "alias/atdr-s3-${var.environment}"
+  name          = "alias/seks-s3-${var.environment}"
   target_key_id = aws_kms_key.s3.key_id
 }
 
 # 포렌식 증거 버킷
 resource "aws_s3_bucket" "forensics" {
-  bucket = "atdr-forensics-${local.account_id}-${var.environment}"
+  bucket = "seks-forensics-${local.account_id}-${var.environment}"
 
   tags = {
     Purpose     = "forensics"
@@ -981,8 +981,8 @@ resource "aws_kms_key" "cloudwatch" {
   })
 }
 
-resource "aws_cloudwatch_log_group" "atdr" {
-  name              = "/atdr/application"
+resource "aws_cloudwatch_log_group" "seks" {
+  name              = "/seks/application"
   retention_in_days = 90
   kms_key_id        = aws_kms_key.cloudwatch.arn
 }
@@ -1017,7 +1017,7 @@ EKS 노드 그룹과 컨트롤 플레인 간 통신에 필요한 포트만 개�
 
 # 컨트롤 플레인 Security Group
 resource "aws_security_group" "eks_control_plane" {
-  name        = "atdr-eks-control-plane-${var.environment}"
+  name        = "seks-eks-control-plane-${var.environment}"
   description = "EKS 컨트롤 플레인 Security Group"
   vpc_id      = var.vpc_id
 
@@ -1039,14 +1039,14 @@ resource "aws_security_group" "eks_control_plane" {
   }
 
   tags = {
-    Name        = "atdr-eks-control-plane"
+    Name        = "seks-eks-control-plane"
     Environment = var.environment
   }
 }
 
 # 노드 Security Group
 resource "aws_security_group" "eks_nodes" {
-  name        = "atdr-eks-nodes-${var.environment}"
+  name        = "seks-eks-nodes-${var.environment}"
   description = "EKS 노드 Security Group"
   vpc_id      = var.vpc_id
 
@@ -1095,7 +1095,7 @@ resource "aws_security_group" "eks_nodes" {
   }
 
   tags = {
-    Name        = "atdr-eks-nodes"
+    Name        = "seks-eks-nodes"
     Environment = var.environment
   }
 }
@@ -1124,12 +1124,12 @@ resource "aws_eks_cluster" "main" {
 
 ```yaml
 # k8s/base/policies/default-deny.yaml
-# atdr 네임스페이스 default-deny
+# seks 네임스페이스 default-deny
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: default-deny-all
-  namespace: atdr
+  namespace: seks
 spec:
   endpointSelector: {}  # 네임스페이스 내 모든 Pod
   ingress:
@@ -1142,7 +1142,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: allow-dns
-  namespace: atdr
+  namespace: seks
 spec:
   endpointSelector: {}
   egress:
@@ -1162,19 +1162,19 @@ spec:
 
 ```yaml
 # k8s/base/policies/namespace-isolation.yaml
-# atdr 네임스페이스는 다른 네임스페이스에서 접근 불가
+# seks 네임스페이스는 다른 네임스페이스에서 접근 불가
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: namespace-isolation
-  namespace: atdr
+  namespace: seks
 spec:
   endpointSelector: {}
   ingress:
   # 같은 네임스페이스 내부 통신만 허용
   - fromEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: atdr
+        k8s:io.kubernetes.pod.namespace: seks
   # Prometheus 스크레이핑 허용
   - fromEndpoints:
     - matchLabels:
@@ -1188,7 +1188,7 @@ spec:
   # 같은 네임스페이스 내부 통신
   - toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: atdr
+        k8s:io.kubernetes.pod.namespace: seks
   # AWS 서비스 (VPC 엔드포인트 경유)
   - toCIDR:
     - 10.0.0.0/8  # VPC CIDR
@@ -1225,7 +1225,7 @@ Pod가 자체 X.509 인증서를 요청하고 갱신할 수 있다. 사이드카
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
-  name: atdr-ai-detector-tls
+  name: seks-ai-detector-tls
 spec:
   request: <base64-encoded-csr>
   signerName: kubernetes.io/kube-apiserver-client
@@ -1235,7 +1235,7 @@ spec:
   - server auth
 ```
 
-ATDR에서는 ai-detector와 correlator 간 통신에 Pod Certificates를 적용해 서비스 메시 없이 mTLS를 구현한다. Cilium의 WireGuard가 노드 간 암호화를 담당하고, Pod Certificates가 서비스 간 인증을 담당하는 이중 구조다.
+SEKS에서는 ai-detector와 correlator 간 통신에 Pod Certificates를 적용해 서비스 메시 없이 mTLS를 구현한다. Cilium의 WireGuard가 노드 간 암호화를 담당하고, Pod Certificates가 서비스 간 인증을 담당하는 이중 구조다.
 
 ### 8.2 Fine-Grained Supplemental Groups (GA): Strict mode
 
@@ -1246,7 +1246,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: ai-detector
-  namespace: atdr
+  namespace: seks
 spec:
   securityContext:
     runAsNonRoot: true
@@ -1259,7 +1259,7 @@ spec:
       type: RuntimeDefault
   containers:
   - name: ai-detector
-    image: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/atdr/ai-detector@sha256:abc123
+    image: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/seks/ai-detector@sha256:abc123
     securityContext:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
@@ -1298,7 +1298,7 @@ spec:
   podInfoOnMount: true
 ```
 
-ATDR에서는 AWS Secrets Manager CSI 드라이버를 통해 데이터베이스 자격증명과 API 키를 Pod에 마운트한다. 환경 변수 대신 파일 시스템 마운트를 사용해 `kubectl describe pod`로 시크릿이 노출되지 않도록 한다.
+SEKS에서는 AWS Secrets Manager CSI 드라이버를 통해 데이터베이스 자격증명과 API 키를 Pod에 마운트한다. 환경 변수 대신 파일 시스템 마운트를 사용해 `kubectl describe pod`로 시크릿이 노출되지 않도록 한다.
 
 ---
 
@@ -1313,20 +1313,20 @@ ATDR에서는 AWS Secrets Manager CSI 드라이버를 통해 데이터베이스 
 brew install cosign
 
 # 키 쌍 생성 (KMS 기반 권장)
-cosign generate-key-pair --kms awskms:///alias/atdr-cosign-${ENVIRONMENT}
+cosign generate-key-pair --kms awskms:///alias/seks-cosign-${ENVIRONMENT}
 
 # 이미지 서명 (CI/CD 파이프라인)
 cosign sign \
-  --key awskms:///alias/atdr-cosign-${ENVIRONMENT} \
+  --key awskms:///alias/seks-cosign-${ENVIRONMENT} \
   --annotations "repo=${GITHUB_REPOSITORY}" \
   --annotations "workflow=${GITHUB_WORKFLOW}" \
   --annotations "commit=${GITHUB_SHA}" \
-  123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/atdr/ai-detector@sha256:${IMAGE_DIGEST}
+  123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/seks/ai-detector@sha256:${IMAGE_DIGEST}
 
 # 서명 검증
 cosign verify \
-  --key awskms:///alias/atdr-cosign-${ENVIRONMENT} \
-  123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/atdr/ai-detector@sha256:${IMAGE_DIGEST}
+  --key awskms:///alias/seks-cosign-${ENVIRONMENT} \
+  123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/seks/ai-detector@sha256:${IMAGE_DIGEST}
 ```
 
 ValidatingAdmissionPolicy와 연동해 서명되지 않은 이미지를 배포 시점에 차단한다.
@@ -1337,13 +1337,13 @@ ValidatingAdmissionPolicy와 연동해 서명되지 않은 이미지를 배포 �
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
 metadata:
-  name: atdr-image-policy
+  name: seks-image-policy
 spec:
   images:
-  - glob: "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/atdr/**"
+  - glob: "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/seks/**"
   authorities:
   - key:
-      kms: awskms:///alias/atdr-cosign-production
+      kms: awskms:///alias/seks-cosign-production
     attestations:
     - name: must-have-slsa
       predicateType: https://slsa.dev/provenance/v0.2
@@ -1373,7 +1373,7 @@ jobs:
     - name: Generate SLSA provenance
       uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.10.0
       with:
-        image: ${{ env.ECR_REGISTRY }}/atdr/ai-detector
+        image: ${{ env.ECR_REGISTRY }}/seks/ai-detector
         digest: ${{ steps.build.outputs.digest }}
         registry-username: ${{ secrets.ECR_USERNAME }}
       secrets:
@@ -1382,10 +1382,10 @@ jobs:
     - name: Attest provenance to ECR
       run: |
         cosign attest \
-          --key awskms:///alias/atdr-cosign-production \
+          --key awskms:///alias/seks-cosign-production \
           --predicate provenance.json \
           --type slsaprovenance \
-          ${{ env.ECR_REGISTRY }}/atdr/ai-detector@${{ steps.build.outputs.digest }}
+          ${{ env.ECR_REGISTRY }}/seks/ai-detector@${{ steps.build.outputs.digest }}
 ```
 
 ### 9.3 ECR 이미지 스캐닝
@@ -1395,13 +1395,13 @@ ECR Enhanced Scanning은 Amazon Inspector를 사용해 OS 패키지와 프로그
 ```hcl
 # terraform/ecr/repositories.tf
 
-resource "aws_ecr_repository" "atdr_services" {
+resource "aws_ecr_repository" "seks_services" {
   for_each = toset([
-    "atdr/ai-detector",
-    "atdr/correlator",
-    "atdr/response-advisor",
-    "atdr/remediation-executor",
-    "atdr/dashboard"
+    "seks/ai-detector",
+    "seks/correlator",
+    "seks/response-advisor",
+    "seks/remediation-executor",
+    "seks/dashboard"
   ])
 
   name                 = each.value
@@ -1428,7 +1428,7 @@ resource "aws_ecr_registry_scanning_configuration" "main" {
   rule {
     scan_frequency = "CONTINUOUS_SCAN"
     repository_filter {
-      filter      = "atdr/*"
+      filter      = "seks/*"
       filter_type = "WILDCARD"
     }
   }
@@ -1436,7 +1436,7 @@ resource "aws_ecr_registry_scanning_configuration" "main" {
 
 # 취약점 발견 시 EventBridge로 알림
 resource "aws_cloudwatch_event_rule" "ecr_finding" {
-  name        = "atdr-ecr-critical-finding"
+  name        = "seks-ecr-critical-finding"
   description = "ECR Critical/High 취약점 탐지"
 
   event_pattern = jsonencode({
@@ -1474,7 +1474,7 @@ resource "aws_cloudwatch_event_target" "ecr_finding_sns" {
 
 ## 10. 시크릿 관리
 
-ATDR의 시크릿(Slack Bot Token, Bedrock 자격증명, MCP 인증 토큰 등)은 AWS Secrets Manager에 저장하고, Kubernetes 워크로드에는 External Secrets Operator(ESO)로 동기화한다. Lambda는 런타임에 Secrets Manager SDK로 직접 읽는다.
+SEKS의 시크릿(Slack Bot Token, Bedrock 자격증명, MCP 인증 토큰 등)은 AWS Secrets Manager에 저장하고, Kubernetes 워크로드에는 External Secrets Operator(ESO)로 동기화한다. Lambda는 런타임에 Secrets Manager SDK로 직접 읽는다.
 
 ### 10.1 왜 Secrets Manager + ESO인가
 
@@ -1488,45 +1488,45 @@ Lambda 환경변수에 시크릿을 직접 넣으면 Terraform state 파일에 �
 | 감사 로그 | CloudTrail 미기록 | CloudTrail 기록 | CloudTrail 완전 기록 |
 | 비용 | 무료 | 무료 | 시크릿당 $0.40/월 |
 
-ATDR에서 관리할 시크릿은 5-6개 수준이므로 월 $2-3이다.
+SEKS에서 관리할 시크릿은 5-6개 수준이므로 월 $2-3이다.
 
 ### 10.2 시크릿 목록
 
 | 시크릿 이름 | 용도 | 소비자 |
 |------------|------|--------|
-| `atdr/slack/bot-token` | Slack Bot OAuth Token | Slack Bot Lambda |
-| `atdr/slack/signing-secret` | Slack Request 서명 검증 | API Gateway Lambda |
-| `atdr/mcp/auth-token` | EKS MCP 서버 인증 | Remediation Agent |
-| `atdr/bedrock/api-config` | Bedrock 엔드포인트 설정 | 모든 Agent Lambda |
-| `atdr/opensearch/endpoint` | OpenSearch Serverless 엔드포인트 | Solution Agent |
+| `seks/slack/bot-token` | Slack Bot OAuth Token | Slack Bot Lambda |
+| `seks/slack/signing-secret` | Slack Request 서명 검증 | API Gateway Lambda |
+| `seks/mcp/auth-token` | EKS MCP 서버 인증 | Remediation Agent |
+| `seks/bedrock/api-config` | Bedrock 엔드포인트 설정 | 모든 Agent Lambda |
+| `seks/opensearch/endpoint` | OpenSearch Serverless 엔드포인트 | Solution Agent |
 
 ### 10.3 Terraform 코드
 
 ```hcl
 resource "aws_secretsmanager_secret" "slack_bot_token" {
-  name        = "atdr/slack/bot-token"
+  name        = "seks/slack/bot-token"
   description = "Slack Bot OAuth Token"
 
   tags = {
-    Project = "atdr"
+    Project = "seks"
   }
 }
 
 resource "aws_secretsmanager_secret" "slack_signing_secret" {
-  name        = "atdr/slack/signing-secret"
+  name        = "seks/slack/signing-secret"
   description = "Slack Request Signing Secret"
 
   tags = {
-    Project = "atdr"
+    Project = "seks"
   }
 }
 
 resource "aws_secretsmanager_secret" "mcp_auth_token" {
-  name        = "atdr/mcp/auth-token"
+  name        = "seks/mcp/auth-token"
   description = "EKS MCP Server Auth Token"
 
   tags = {
-    Project = "atdr"
+    Project = "seks"
   }
 }
 ```
@@ -1535,7 +1535,7 @@ resource "aws_secretsmanager_secret" "mcp_auth_token" {
 
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id atdr/slack/bot-token \
+  --secret-id seks/slack/bot-token \
   --secret-string '{"token":"xoxb-..."}'
 ```
 
@@ -1556,7 +1556,7 @@ def get_secret(secret_id: str) -> dict:
     return json.loads(response["SecretString"])
 
 def lambda_handler(event, context):
-    slack_config = get_secret("atdr/slack/bot-token")
+    slack_config = get_secret("seks/slack/bot-token")
     token = slack_config["token"]
 ```
 
@@ -1571,7 +1571,7 @@ apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: mcp-auth
-  namespace: atdr
+  namespace: seks
 spec:
   refreshInterval: 1h
   secretStoreRef:
@@ -1583,7 +1583,7 @@ spec:
   data:
   - secretKey: token
     remoteRef:
-      key: atdr/mcp/auth-token
+      key: seks/mcp/auth-token
       property: token
 ---
 apiVersion: external-secrets.io/v1beta1

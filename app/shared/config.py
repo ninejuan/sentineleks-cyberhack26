@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Config:
-    project: str = field(default_factory=lambda: os.environ.get("PROJECT", "atdr"))
+    project: str = field(default_factory=lambda: os.environ.get("PROJECT", "seks"))
     region: str = field(default_factory=lambda: os.environ.get("AWS_REGION", "us-east-1"))
     log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
     agent_type: str = field(default_factory=lambda: os.environ.get("AGENT_TYPE", ""))
@@ -13,12 +13,12 @@ class Config:
     knowledge_base_id: str = field(default_factory=lambda: os.environ.get("KNOWLEDGE_BASE_ID", ""))
     state_machine_arn: str = field(default_factory=lambda: os.environ.get("STATE_MACHINE_ARN", ""))
     dynamodb_table_name: str = field(default_factory=lambda: os.environ.get("DYNAMODB_TABLE_NAME", ""))
-    eks_cluster_name: str = field(default_factory=lambda: os.environ.get("EKS_CLUSTER_NAME", "atdr-demo"))
+    eks_cluster_name: str = field(default_factory=lambda: os.environ.get("EKS_CLUSTER_NAME", "seks-demo"))
     mcp_server_url: str = field(default_factory=lambda: os.environ.get("MCP_SERVER_URL", ""))
     mcp_server_url_secret_id: str = field(
-        default_factory=lambda: os.environ.get("MCP_SERVER_URL_SECRET_ID", "atdr/mcp/server-url")
+        default_factory=lambda: os.environ.get("MCP_SERVER_URL_SECRET_ID", "seks/mcp/server-url")
     )
-    mcp_auth_secret_id: str = field(default_factory=lambda: os.environ.get("MCP_AUTH_SECRET_ID", "atdr/mcp/auth-token"))
+    mcp_auth_secret_id: str = field(default_factory=lambda: os.environ.get("MCP_AUTH_SECRET_ID", "seks/mcp/auth-token"))
     mcp_timeout_seconds: int = field(default_factory=lambda: int(os.environ.get("MCP_TIMEOUT_SECONDS", "10")))
     oncall_user: str = field(default_factory=lambda: os.environ.get("ONCALL_USER", ""))
     oncall_channel: str = field(default_factory=lambda: os.environ.get("ONCALL_CHANNEL", ""))

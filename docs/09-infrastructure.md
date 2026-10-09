@@ -2,7 +2,7 @@
 
 ## 인프라 개요
 
-ATDR 프로젝트의 모든 AWS 리소스는 Terraform으로 관리한다. 콘솔에서 직접 클릭하는 방식은 재현성이 없고, 학교 크레딧 환경에서 실수로 리소스를 남기면 비용이 누적된다. IaC로 관리하면 `terraform destroy` 한 번으로 전체를 정리할 수 있다.
+SEKS 프로젝트의 모든 AWS 리소스는 Terraform으로 관리한다. 콘솔에서 직접 클릭하는 방식은 재현성이 없고, 학교 크레딧 환경에서 실수로 리소스를 남기면 비용이 누적된다. IaC로 관리하면 `terraform destroy` 한 번으로 전체를 정리할 수 있다.
 
 구조는 기능별 모듈로 분리했다. VPC, EKS, IAM, GuardDuty 등 각 관심사가 독립된 모듈 디렉터리에 담기고, `environments/dev/main.tf`에서 이 모듈들을 조합해 실제 환경을 구성한다. 모듈 경계가 명확하면 특정 컴포넌트만 교체하거나 비활성화하기 쉽다.
 
@@ -488,7 +488,7 @@ Bedrock Knowledge Base의 벡터 스토어로 OpenSearch Serverless를 쓴다. �
 resource "aws_opensearchserverless_collection" "kb" {
   name        = "${var.project}-kb"
   type        = "VECTORSEARCH"
-  description = "Knowledge Base for ATDR runbooks"
+  description = "Knowledge Base for SEKS runbooks"
 
   depends_on = [
     aws_opensearchserverless_security_policy.encryption,

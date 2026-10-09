@@ -9,7 +9,7 @@ from app.shared import secrets
 
 @pytest.fixture(autouse=True)
 def mock_env(monkeypatch):
-    monkeypatch.setenv("PROJECT", "test-atdr")
+    monkeypatch.setenv("PROJECT", "test-seks")
     monkeypatch.setenv("AWS_REGION", "us-west-2")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("AGENT_TYPE", "summary")
@@ -41,6 +41,11 @@ def clear_secret_cache():
 def bedrock_runtime_client():
     client = MagicMock()
     client.invoke_model.return_value = {"body": BytesIO(json.dumps({"content": [{"text": '{"ok": true}'}]}).encode())}
+    client.converse.return_value = {
+        "output": {"message": {"role": "assistant", "content": [{"text": '{"ok": true}'}]}},
+        "stopReason": "end_turn",
+        "usage": {},
+    }
     return client
 
 

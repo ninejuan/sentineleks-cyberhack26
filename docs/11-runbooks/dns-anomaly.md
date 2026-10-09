@@ -172,7 +172,7 @@ aws logs filter-log-events \
   > /tmp/evidence-flowlogs-$(date +%s).txt
 
 # 증거 S3 업로드
-aws s3 cp /tmp/evidence-* s3://atdr-evidence-bucket/incidents/<INCIDENT_ID>/
+aws s3 cp /tmp/evidence-* s3://seks-evidence-bucket/incidents/<INCIDENT_ID>/
 ```
 
 ### 3단계: 근본 원인 분석
@@ -246,7 +246,7 @@ aws guardduty create-threat-intel-set \
   --detector-id <DETECTOR_ID> \
   --name "custom-malicious-domains" \
   --format TXT \
-  --location s3://atdr-threat-intel/domains.txt \
+  --location s3://seks-threat-intel/domains.txt \
   --activate
 ```
 

@@ -12,7 +12,7 @@ def report_response(config: Config, period: str) -> dict:
     period = period.lower()
     if period not in {"daily", "weekly"}:
         return blocks_response(
-            error_blocks("Unknown report", "Use `/atdr report daily` or `/atdr report weekly`."), ephemeral=True
+            error_blocks("Unknown report", "Use `/seks report daily` or `/seks report weekly`."), ephemeral=True
         )
     try:
         report = build_report(config, period)

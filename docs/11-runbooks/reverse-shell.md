@@ -164,7 +164,7 @@ kubectl exec -n kube-system ds/tetragon -c tetragon -- \
   > /tmp/evidence-tetragon-$(date +%s).json
 
 # 증거 S3 업로드
-aws s3 cp /tmp/evidence-* s3://atdr-evidence-bucket/incidents/<INCIDENT_ID>/
+aws s3 cp /tmp/evidence-* s3://seks-evidence-bucket/incidents/<INCIDENT_ID>/
 ```
 
 ### 3단계: 근본 원인 분석

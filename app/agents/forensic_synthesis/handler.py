@@ -12,7 +12,7 @@ from app.shared.config import Config
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are ATDR's Forensic Synthesis Analyst.
+SYSTEM_PROMPT = """You are SEKS's Forensic Synthesis Analyst.
 
 You receive the full incident context for a Kubernetes security event:
 - Original detection (Falco / Tetragon / GuardDuty)

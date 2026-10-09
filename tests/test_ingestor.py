@@ -45,7 +45,7 @@ def test_detect_source_handles_all_supported_sources():
 
 
 def test_lambda_handler_retains_tetragon_event_in_timeline_table(aws_mocks, context, monkeypatch):
-    monkeypatch.setattr(handler, "TETRAGON_TABLE", "atdr-tetragon-events")
+    monkeypatch.setattr(handler, "TETRAGON_TABLE", "seks-tetragon-events")
 
     tetragon_event = {
         "process_kprobe": {
@@ -55,7 +55,7 @@ def test_lambda_handler_retains_tetragon_event_in_timeline_table(aws_mocks, cont
                 "arguments": "/etc/shadow",
                 "pod": {
                     "uid": "pod-uid-1",
-                    "namespace": "atdr-test",
+                    "namespace": "seks-test",
                     "name": "attacker",
                     "container": {"name": "attacker"},
                 },
@@ -71,8 +71,8 @@ def test_lambda_handler_retains_tetragon_event_in_timeline_table(aws_mocks, cont
 
     dynamodb_resource = aws_mocks["resources"]["dynamodb"]
     table_calls = [call.args[0] for call in dynamodb_resource.Table.call_args_list]
-    assert "atdr-tetragon-events" in table_calls
-    assert "atdr-event-dedup" in table_calls
+    assert "seks-tetragon-events" in table_calls
+    assert "seks-event-dedup" in table_calls
 
     table = dynamodb_resource.Table.return_value
     put_calls = [call for call in table.put_item.call_args_list if "Item" in call.kwargs]
@@ -88,13 +88,13 @@ def test_lambda_handler_retains_tetragon_event_in_timeline_table(aws_mocks, cont
 
 
 def test_lambda_handler_skips_retention_when_pod_uid_missing(aws_mocks, context, monkeypatch):
-    monkeypatch.setattr(handler, "TETRAGON_TABLE", "atdr-tetragon-events")
+    monkeypatch.setattr(handler, "TETRAGON_TABLE", "seks-tetragon-events")
 
     tetragon_event = {
         "process_kprobe": {
             "process": {
                 "binary": "/bin/ls",
-                "pod": {"namespace": "atdr-test", "name": "no-uid"},
+                "pod": {"namespace": "seks-test", "name": "no-uid"},
             },
             "policy_name": "detect-sensitive-file-access",
         },
@@ -108,7 +108,7 @@ def test_lambda_handler_skips_retention_when_pod_uid_missing(aws_mocks, context,
 
 
 def test_lambda_handler_does_not_retain_non_tetragon_event(aws_mocks, context, monkeypatch):
-    monkeypatch.setattr(handler, "TETRAGON_TABLE", "atdr-tetragon-events")
+    monkeypatch.setattr(handler, "TETRAGON_TABLE", "seks-tetragon-events")
 
     falco_event = {"rule": "Credential file access", "output": "cat /etc/shadow"}
     handler.lambda_handler({"Records": [{"body": json.dumps(falco_event)}]}, context)

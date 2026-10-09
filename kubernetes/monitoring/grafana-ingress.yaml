@@ -8,7 +8,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /api/health
-    alb.ingress.kubernetes.io/tags: Project=atdr,Environment=demo
+    alb.ingress.kubernetes.io/tags: Project=seks,Environment=demo
 spec:
   ingressClassName: alb
   rules:

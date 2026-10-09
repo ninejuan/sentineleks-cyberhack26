@@ -5,7 +5,7 @@ metadata:
   namespace: tetragon
   labels:
     app.kubernetes.io/name: tetragon-sns-forwarder
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 data:
   forwarder.py: |
     import glob
@@ -20,7 +20,7 @@ data:
     SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
     REGION = os.environ.get("AWS_REGION", "us-east-1")
     POLICY_FILTER = os.environ.get("POLICY_FILTER", "detect-sensitive-file-access,detect-privilege-escalation,detect-container-escape")
-    NAMESPACE_EXCLUDE = os.environ.get("NAMESPACE_EXCLUDE", "kube-system,monitoring,external-secrets,falco,tetragon,atdr")
+    NAMESPACE_EXCLUDE = os.environ.get("NAMESPACE_EXCLUDE", "kube-system,monitoring,external-secrets,falco,tetragon,seks")
 
     sns = boto3.client("sns", region_name=REGION)
     policies = set(POLICY_FILTER.split(","))
@@ -106,7 +106,7 @@ metadata:
   namespace: tetragon
   labels:
     app.kubernetes.io/name: tetragon-sns-forwarder
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 spec:
   selector:
     matchLabels:
@@ -115,7 +115,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: tetragon-sns-forwarder
-        app.kubernetes.io/part-of: atdr
+        app.kubernetes.io/part-of: seks
     spec:
       serviceAccountName: tetragon-sns-forwarder
       containers:
@@ -159,4 +159,4 @@ metadata:
   namespace: tetragon
   labels:
     app.kubernetes.io/name: tetragon-sns-forwarder
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks

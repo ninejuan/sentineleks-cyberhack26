@@ -32,13 +32,13 @@ serviceAccount:
   name: falcosidekick
 
 customRules:
-  atdr-rules.yaml: |-
+  seks-rules.yaml: |-
     - rule: Credential file access in container
       desc: Sensitive credential file read in non-infrastructure container
       condition: >
         (evt.type in (open, openat, openat2) and evt.is_open_read = true)
         and (fd.name = /etc/shadow or fd.name = /etc/gshadow)
-        and not k8s.ns.name in (kube-system, monitoring, external-secrets, falco, tetragon, atdr)
+        and not k8s.ns.name in (kube-system, monitoring, external-secrets, falco, tetragon, seks)
       output: >
         Credential file accessed in container
         (user=%user.name command=%proc.cmdline file=%fd.name
@@ -53,7 +53,7 @@ customRules:
         spawned_process and container
         and (proc.name in (nmap, socat, tcpdump, tshark, mitmproxy)
              or proc.exepath in (/usr/bin/ncat, /usr/bin/netcat, /usr/local/bin/ncat))
-        and not k8s.ns.name in (kube-system, monitoring, external-secrets, falco, tetragon, atdr)
+        and not k8s.ns.name in (kube-system, monitoring, external-secrets, falco, tetragon, seks)
       output: >
         Suspicious network tool launched
         (user=%user.name command=%proc.cmdline

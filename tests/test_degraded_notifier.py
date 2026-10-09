@@ -40,4 +40,4 @@ def test_lambda_handler_uses_project_from_config(monkeypatch, context):
 
     handler.lambda_handler({"source": "guardduty"}, context)
 
-    assert created["project"] == "test-atdr"
+    assert created["project"] == "test-seks"

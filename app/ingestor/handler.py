@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 DEDUP_WINDOW_SECONDS = 300
-DEDUP_TABLE = os.environ.get("DEDUP_TABLE_NAME", "atdr-event-dedup")
-TETRAGON_TABLE = os.environ.get("TETRAGON_EVENTS_TABLE", "atdr-tetragon-events")
+DEDUP_TABLE = os.environ.get("DEDUP_TABLE_NAME", "seks-event-dedup")
+TETRAGON_TABLE = os.environ.get("TETRAGON_EVENTS_TABLE", "seks-tetragon-events")
 TETRAGON_TTL_SECONDS = int(os.environ.get("TETRAGON_EVENT_TTL_SECONDS", str(30 * 60)))
 
 

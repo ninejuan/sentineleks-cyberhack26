@@ -1,6 +1,6 @@
 TF_DIR       := terraform/envs/demo
 REGION       ?= $(shell cd $(TF_DIR) && terraform output -raw region 2>/dev/null || echo "us-east-1")
-CLUSTER_NAME ?= $(shell cd $(TF_DIR) && terraform output -raw eks_cluster_name 2>/dev/null || echo "atdr-demo")
+CLUSTER_NAME ?= $(shell cd $(TF_DIR) && terraform output -raw eks_cluster_name 2>/dev/null || echo "seks-demo")
 ENVIRONMENT  ?= $(shell grep -A3 'variable "environment"' $(TF_DIR)/variable.tf | grep default | sed 's/.*"\(.*\)".*/\1/')
 PROJECT      ?= $(shell cd $(TF_DIR) && terraform output -raw project_name 2>/dev/null || echo "$(CLUSTER_NAME)" | sed 's/-$(ENVIRONMENT)$$//')
 AWS_ACCOUNT  ?= $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null)
@@ -153,7 +153,7 @@ platform-up:
 	@$(KCTL) wait --for=condition=Established crd/externalsecrets.external-secrets.io --timeout=60s
 	@$(KCTL) rollout status deployment/external-secrets-webhook -n external-secrets --timeout=120s
 	$(KCTL) create namespace monitoring --dry-run=client -o yaml | $(KCTL) apply -f -
-	$(KCTL) create namespace atdr --dry-run=client -o yaml | $(KCTL) apply -f -
+	$(KCTL) create namespace seks --dry-run=client -o yaml | $(KCTL) apply -f -
 	@aws secretsmanager get-secret-value --secret-id $(PROJECT)/mcp/auth-token --region $(REGION) --query SecretString --output text >/dev/null || \
 		(echo "ERROR: $(PROJECT)/mcp/auth-token is empty. Run make secrets before make platform-up."; exit 1)
 	@python3 -c 'from pathlib import Path; import sys; text=Path("kubernetes/external-secrets/external-secrets.yaml").read_text(); print(text.replace("$${AWS_REGION}", sys.argv[1]).replace("$${PROJECT}", sys.argv[2]))' "$(REGION)" "$(PROJECT)" | $(KCTL) apply -f -
@@ -165,7 +165,7 @@ platform-up:
 	echo "ERROR: slack-webhook-url was not synced by External Secrets"; exit 1
 	@echo "Waiting for MCP auth token secret..."
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
-		$(KCTL) get secret mcp-auth-token -n atdr >/dev/null 2>&1 && exit 0; \
+		$(KCTL) get secret mcp-auth-token -n seks >/dev/null 2>&1 && exit 0; \
 		sleep 5; \
 	done; \
 	echo "ERROR: mcp-auth-token was not synced by External Secrets"; exit 1
@@ -179,7 +179,7 @@ platform-up:
 		-f kubernetes/monitoring/loki-values.yaml
 	@echo "--- Grafana Ingress ---"
 	$(KCTL) apply -f kubernetes/monitoring/grafana-ingress.yaml
-	$(KCTL) apply -f kubernetes/monitoring/atdr-dashboard.yaml
+	$(KCTL) apply -f kubernetes/monitoring/seks-dashboard.yaml
 	@echo "--- EKS MCP Server ---"
 	@$(MAKE) -s build-mcp MCP_IMAGE_TAG=$(MCP_IMAGE_TAG)
 	@MCP_IMAGE=$$(cd $(TF_DIR) && terraform output -raw mcp_server_repository_url):$(MCP_IMAGE_TAG) && \
@@ -189,10 +189,10 @@ platform-up:
 		TETRAGON_EVENTS_TABLE="$(PROJECT)-tetragon-events" && \
 		EKS_AUDIT_LOG_GROUP="/aws/eks/$(CLUSTER_NAME)/cluster" && \
 		python3 -c 'from pathlib import Path; import sys; text=Path("kubernetes/mcp/eks-mcp-server.yaml").read_text(); repls={"$${MCP_IMAGE}": sys.argv[1], "$${FORENSICS_BUCKET}": sys.argv[2], "$${MCP_NLB_SECURITY_GROUP_ID}": sys.argv[3], "$${VPC_CIDR}": sys.argv[4], "$${TETRAGON_EVENTS_TABLE}": sys.argv[5], "$${EKS_AUDIT_LOG_GROUP}": sys.argv[6], "$${AWS_REGION}": sys.argv[7]}; [globals().__setitem__("text", text.replace(k, v)) for k, v in repls.items()]; print(text)' "$$MCP_IMAGE" "$$FORENSICS_BUCKET" "$$MCP_NLB_SG" "$$VPC_CIDR" "$$TETRAGON_EVENTS_TABLE" "$$EKS_AUDIT_LOG_GROUP" "$(REGION)" | $(KCTL) apply -f -
-	@$(KCTL) rollout status deployment/eks-mcp-server -n atdr --timeout=180s
+	@$(KCTL) rollout status deployment/eks-mcp-server -n seks --timeout=180s
 	@echo "Waiting for EKS MCP internal load balancer..."
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
-		MCP_HOST=$$($(KCTL) get svc eks-mcp-server -n atdr -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null); \
+		MCP_HOST=$$($(KCTL) get svc eks-mcp-server -n seks -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null); \
 		if [ -n "$$MCP_HOST" ]; then \
 			aws secretsmanager put-secret-value --secret-id $(PROJECT)/mcp/server-url --secret-string "{\"url\":\"http://$$MCP_HOST/mcp\"}" --region $(REGION) --no-cli-pager >/dev/null; \
 			echo "  $(PROJECT)/mcp/server-url: http://$$MCP_HOST/mcp"; \
@@ -226,7 +226,7 @@ platform-down:
 	@$(HLM) uninstall cilium -n kube-system --no-hooks --timeout=60s 2>/dev/null || true
 	@$(HLM) uninstall falco -n falco --no-hooks --timeout=60s 2>/dev/null || true
 	@echo "--- Cleaning up namespaces ---"
-	@for ns in falco tetragon monitoring external-secrets atdr; do \
+	@for ns in falco tetragon monitoring external-secrets seks; do \
 		$(KCTL) delete ns $$ns --ignore-not-found --timeout=30s 2>/dev/null || \
 		($(KCTL) get ns $$ns -o json 2>/dev/null | python3 -c 'import json,sys; ns=json.load(sys.stdin); ns["spec"]["finalizers"]=[]; print(json.dumps(ns))' | \
 		$(KCTL) replace --raw "/api/v1/namespaces/$$ns/finalize" -f - 2>/dev/null) || true; \
@@ -298,7 +298,7 @@ create-kb:
 			echo "Creating Knowledge Base..."; \
 			KB_ID=$$(aws bedrock-agent create-knowledge-base \
 				--name $(PROJECT)-runbooks-kb \
-				--description "ATDR response runbooks indexed for Solution Agent RAG" \
+				--description "SEKS response runbooks indexed for Solution Agent RAG" \
 				--role-arn $$KB_ROLE_ARN \
 				--knowledge-base-configuration '{"type":"VECTOR","vectorKnowledgeBaseConfiguration":{"embeddingModelArn":"arn:aws:bedrock:$(REGION)::foundation-model/amazon.titan-embed-text-v2:0","embeddingModelConfiguration":{"bedrockEmbeddingModelConfiguration":{"dimensions":1024,"embeddingDataType":"FLOAT32"}}}}' \
 				--storage-configuration "{\"type\":\"OPENSEARCH_SERVERLESS\",\"opensearchServerlessConfiguration\":{\"collectionArn\":\"$$COLLECTION_ARN\",\"vectorIndexName\":\"$$INDEX_NAME\",\"fieldMapping\":{\"vectorField\":\"bedrock-vector\",\"textField\":\"AMAZON_BEDROCK_TEXT_CHUNK\",\"metadataField\":\"AMAZON_BEDROCK_METADATA\"}}}" \
@@ -357,7 +357,7 @@ all-down:
 ## ─── Secrets ─────────────────────────────────────────────────────
 
 secrets:
-	@echo "=== ATDR Secrets Setup ==="
+	@echo "=== SEKS Secrets Setup ==="
 	@echo "Get these from https://api.slack.com/apps → Your App:"
 	@echo "  - Bot Token: OAuth & Permissions → Bot User OAuth Token"
 	@echo "  - Webhook URL: Incoming Webhooks → Webhook URL"

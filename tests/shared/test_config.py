@@ -8,7 +8,7 @@ from app.shared.config import Config
 def test_config_reads_environment_variables():
     config = Config()
 
-    assert config.project == "test-atdr"
+    assert config.project == "test-seks"
     assert config.region == "us-west-2"
     assert config.log_level == "DEBUG"
     assert config.agent_type == "summary"
@@ -22,7 +22,7 @@ def test_config_uses_defaults_when_env_missing(monkeypatch):
 
     config = Config()
 
-    assert config.project == "atdr"
+    assert config.project == "seks"
     assert config.region == "us-east-1"
     assert config.log_level == "INFO"
     assert config.agent_type == ""

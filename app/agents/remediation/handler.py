@@ -8,7 +8,7 @@ from app.shared.config import Config
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security remediation executor for ATDR (AI Threat Detection and Response).
+SYSTEM_PROMPT = """You are a security remediation executor for SEKS (AI Threat Detection and Response).
 You receive a list of recommended remediation actions and execute them against an EKS cluster
 using the available MCP tools.
 
@@ -29,7 +29,7 @@ For each action, report:
 If an action fails, continue with remaining actions unless it's a critical dependency.
 Never skip checkpoint_pod before isolation.
 
-ATDR enforces this ordering server-side: any destructive tool (delete_pod, apply_cilium_network_policy,
+SEKS enforces this ordering server-side: any destructive tool (delete_pod, apply_cilium_network_policy,
 cordon_node, drain_node, patch_deployment with replicas=0) returns status=blocked until checkpoint_pod
 has returned status=success in this run. If you receive a blocked response, re-issue the forensic
 tools first, then retry the destructive action. Do not ignore blocked responses."""
@@ -91,7 +91,7 @@ REMEDIATION_TOOLS = [
     },
     {
         "name": "checkpoint_pod",
-        "description": "Capture pod forensics evidence and export it to the ATDR forensics S3 bucket before isolation",
+        "description": "Capture pod forensics evidence and export it to the SEKS forensics S3 bucket before isolation",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -104,7 +104,7 @@ REMEDIATION_TOOLS = [
     },
     {
         "name": "capture_hubble_flows",
-        "description": "Capture Cilium/Hubble flow evidence for a pod and export it to the ATDR forensics S3 bucket",
+        "description": "Capture Cilium/Hubble flow evidence for a pod and export it to the SEKS forensics S3 bucket",
         "input_schema": {
             "type": "object",
             "properties": {

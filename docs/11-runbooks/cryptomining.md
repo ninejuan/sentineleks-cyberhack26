@@ -67,7 +67,7 @@ kubectl top pod <POD_NAME> -n <NAMESPACE>
 - CloudWatch Logs: `/aws/eks/<CLUSTER_NAME>/cluster` (audit log)
 - GuardDuty Findings: AWS Console > GuardDuty > Findings
 - Falco 로그: `kubectl logs -n falco ds/falco | grep <POD_NAME>`
-- OpenSearch: `atdr-security-events` 인덱스에서 `pod_name` 필드로 검색
+- OpenSearch: `seks-security-events` 인덱스에서 `pod_name` 필드로 검색
 
 ---
 
@@ -115,7 +115,7 @@ kubectl logs <POD_NAME> -n <NAMESPACE> --previous > /tmp/evidence-logs-$(date +%
 kubectl logs <POD_NAME> -n <NAMESPACE> > /tmp/evidence-logs-current-$(date +%s).txt
 
 # 증거를 S3에 업로드
-aws s3 cp /tmp/evidence-* s3://atdr-evidence-bucket/incidents/<INCIDENT_ID>/
+aws s3 cp /tmp/evidence-* s3://seks-evidence-bucket/incidents/<INCIDENT_ID>/
 ```
 
 ### 3단계: 근본 원인 분석

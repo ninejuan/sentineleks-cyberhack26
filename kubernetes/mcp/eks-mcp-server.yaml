@@ -2,18 +2,18 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: eks-mcp-server
-  namespace: atdr
+  namespace: seks
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: atdr-eks-mcp-server
+  name: seks-eks-mcp-server
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -46,27 +46,27 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: atdr-eks-mcp-server
+  name: seks-eks-mcp-server
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: atdr-eks-mcp-server
+  name: seks-eks-mcp-server
 subjects:
   - kind: ServiceAccount
     name: eks-mcp-server
-    namespace: atdr
+    namespace: seks
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: eks-mcp-server
-  namespace: atdr
+  namespace: seks
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 spec:
   replicas: 1
   selector:
@@ -76,7 +76,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: eks-mcp-server
-        app.kubernetes.io/part-of: atdr
+        app.kubernetes.io/part-of: seks
     spec:
       serviceAccountName: eks-mcp-server
       containers:
@@ -129,10 +129,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: eks-mcp-server
-  namespace: atdr
+  namespace: seks
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-scheme: internal
     service.beta.kubernetes.io/aws-load-balancer-type: external
@@ -154,10 +154,10 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: eks-mcp-server-ingress
-  namespace: atdr
+  namespace: seks
   labels:
     app.kubernetes.io/name: eks-mcp-server
-    app.kubernetes.io/part-of: atdr
+    app.kubernetes.io/part-of: seks
 spec:
   endpointSelector:
     matchLabels:

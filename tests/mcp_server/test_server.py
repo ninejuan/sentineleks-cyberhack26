@@ -10,9 +10,9 @@ import pytest
 @pytest.fixture
 def server_module(monkeypatch):
     monkeypatch.setenv("MCP_AUTH_TOKEN", "test-token")
-    monkeypatch.setenv("FORENSICS_BUCKET", "atdr-forensics-test")
-    monkeypatch.setenv("TETRAGON_EVENTS_TABLE", "atdr-tetragon-events-test")
-    monkeypatch.setenv("EKS_AUDIT_LOG_GROUP", "/aws/eks/atdr-demo/cluster")
+    monkeypatch.setenv("FORENSICS_BUCKET", "seks-forensics-test")
+    monkeypatch.setenv("TETRAGON_EVENTS_TABLE", "seks-tetragon-events-test")
+    monkeypatch.setenv("EKS_AUDIT_LOG_GROUP", "/aws/eks/seks-demo/cluster")
     sys.modules.pop("mcp_server.server", None)
 
     with (
@@ -32,7 +32,7 @@ def server_module(monkeypatch):
 def test_forensics_destination_uses_server_owned_bucket(server_module):
     bucket, key = server_module._forensics_destination("checkpoints", "pod-a")
 
-    assert bucket == "atdr-forensics-test"
+    assert bucket == "seks-forensics-test"
     assert key.startswith("incidents/adhoc/checkpoints/pod-a/")
     assert key.endswith("/evidence.json")
 
@@ -40,7 +40,7 @@ def test_forensics_destination_uses_server_owned_bucket(server_module):
 def test_forensics_destination_uses_sanitized_incident_id(server_module):
     bucket, key = server_module._forensics_destination("checkpoints", "pod-a", "inc-2026-05-07-falco")
 
-    assert bucket == "atdr-forensics-test"
+    assert bucket == "seks-forensics-test"
     assert key.startswith("incidents/inc-2026-05-07-falco/checkpoints/pod-a/")
 
 
@@ -116,15 +116,15 @@ def test_checkpoint_pod_writes_forensics_evidence(server_module, monkeypatch):
 
     assert result["status"] == "success"
     assert result["pod"] == "pod-a"
-    assert result["evidence_uri"].startswith("s3://atdr-forensics-test/incidents/inc-2026-abc/checkpoints/pod-a/")
+    assert result["evidence_uri"].startswith("s3://seks-forensics-test/incidents/inc-2026-abc/checkpoints/pod-a/")
     assert "evidence_sha256" in result
     assert len(result["evidence_sha256"]) == 64
 
     evidence_call = next(call for call in put_calls if "/evidence.json" in call["Key"])
     manifest_call = next(call for call in put_calls if "/manifest/" in call["Key"])
-    assert evidence_call["Bucket"] == "atdr-forensics-test"
+    assert evidence_call["Bucket"] == "seks-forensics-test"
     assert evidence_call["Metadata"]["sha256"] == result["evidence_sha256"]
-    assert manifest_call["Bucket"] == "atdr-forensics-test"
+    assert manifest_call["Bucket"] == "seks-forensics-test"
     assert manifest_call["Metadata"]["incident-id"] == "inc-2026-abc"
 
     payload = json.loads(evidence_call["Body"].decode("utf-8"))
@@ -186,7 +186,7 @@ def test_capture_hubble_flows_writes_forensics_evidence(server_module, monkeypat
     assert result["endpoints_found"] == 1
     assert result["hubble_flow_count"] == 2
     assert result["hubble_error"] is None
-    assert result["evidence_uri"].startswith("s3://atdr-forensics-test/incidents/inc-2026-xyz/network-evidence/pod-a/")
+    assert result["evidence_uri"].startswith("s3://seks-forensics-test/incidents/inc-2026-xyz/network-evidence/pod-a/")
     assert "evidence_sha256" in result
 
     evidence_call = next(call for call in put_calls if "/evidence.json" in call["Key"])
@@ -258,9 +258,9 @@ def test_put_forensics_object_returns_sha256(server_module, monkeypatch):
 
     payload = b"hello forensic world"
     uri, sha256, size = server_module._put_forensics_object(
-        "atdr-forensics-test", "some/key.bin", payload, "application/octet-stream"
+        "seks-forensics-test", "some/key.bin", payload, "application/octet-stream"
     )
-    assert uri == "s3://atdr-forensics-test/some/key.bin"
+    assert uri == "s3://seks-forensics-test/some/key.bin"
     assert size == len(payload)
     assert sha256 == "9836e30efa1910f25dffa2908852fd823db8a2d557c2320f76ea66d3909b14ce"
     assert put_calls[0]["Metadata"] == {"sha256": sha256}
@@ -276,7 +276,7 @@ def test_collect_tetragon_timeline_returns_events(server_module, monkeypatch):
                 {
                     "sk": "2026-05-06T19:16:03Z#execA",
                     "recorded_at": "2026-05-06T19:16:05Z",
-                    "namespace": "atdr-test",
+                    "namespace": "seks-test",
                     "pod_name": "attacker",
                     "container": "attacker",
                     "policy_name": "detect-sensitive-file-access",
@@ -287,7 +287,7 @@ def test_collect_tetragon_timeline_returns_events(server_module, monkeypatch):
                 {
                     "sk": "2026-05-06T19:16:10Z#execB",
                     "recorded_at": "2026-05-06T19:16:12Z",
-                    "namespace": "atdr-test",
+                    "namespace": "seks-test",
                     "pod_name": "attacker",
                     "container": "attacker",
                     "policy_name": "detect-privilege-escalation",
@@ -306,7 +306,7 @@ def test_collect_tetragon_timeline_returns_events(server_module, monkeypatch):
     assert result["status"] == "success"
     assert result["pod_uid"] == "uid-1"
     assert result["event_count"] == 2
-    assert result["namespace"] == "atdr-test"
+    assert result["namespace"] == "seks-test"
     assert result["pod_name"] == "attacker"
     assert result["evidence_uri"] is None
 
@@ -322,7 +322,7 @@ def test_collect_tetragon_timeline_writes_forensics_when_incident_id(server_modu
                 {
                     "sk": "2026-05-06T19:16:03Z#execA",
                     "recorded_at": "2026-05-06T19:16:05Z",
-                    "namespace": "atdr-test",
+                    "namespace": "seks-test",
                     "pod_name": "attacker",
                     "container": "attacker",
                     "policy_name": "detect-sensitive-file-access",
@@ -347,7 +347,7 @@ def test_collect_tetragon_timeline_writes_forensics_when_incident_id(server_modu
     result = server_module.collect_tetragon_timeline(pod_uid="uid-2", since_minutes=10, incident_id="inc-2026-tl")
 
     assert result["status"] == "success"
-    assert result["evidence_uri"].startswith("s3://atdr-forensics-test/incidents/inc-2026-tl/tetragon-timeline/uid-2/")
+    assert result["evidence_uri"].startswith("s3://seks-forensics-test/incidents/inc-2026-tl/tetragon-timeline/uid-2/")
     assert "evidence_sha256" in result
 
     evidence_call = next(call for call in put_calls if "/evidence.json" in call["Key"])
@@ -380,7 +380,7 @@ def test_collect_audit_events_returns_normalized_rows(server_module, monkeypatch
                     [
                         {"field": "@timestamp", "value": "2026-05-06 19:16:03.000"},
                         {"field": "verb", "value": "create"},
-                        {"field": "objectRef.namespace", "value": "atdr-test"},
+                        {"field": "objectRef.namespace", "value": "seks-test"},
                         {"field": "objectRef.name", "value": "attacker"},
                         {"field": "user.username", "value": "system:admin"},
                         {"field": "@ptr", "value": "ignored"},
@@ -394,15 +394,15 @@ def test_collect_audit_events_returns_normalized_rows(server_module, monkeypatch
 
     monkeypatch.setattr(server_module, "LOGS", FakeLogs())
 
-    result = server_module.collect_audit_events(pod_name="attacker", namespace="atdr-test", since_minutes=15)
+    result = server_module.collect_audit_events(pod_name="attacker", namespace="seks-test", since_minutes=15)
 
     assert result["status"] == "success"
     assert result["event_count"] == 1
     assert result["statistics"]["recordsMatched"] == 1.0
     assert result["evidence_uri"] is None
 
-    assert start_calls[0]["logGroupName"] == "/aws/eks/atdr-demo/cluster"
-    assert "atdr-test" in start_calls[0]["queryString"]
+    assert start_calls[0]["logGroupName"] == "/aws/eks/seks-demo/cluster"
+    assert "seks-test" in start_calls[0]["queryString"]
     assert "attacker" in start_calls[0]["queryString"]
     assert start_calls[0]["endTime"] > start_calls[0]["startTime"]
 
@@ -419,7 +419,7 @@ def test_collect_audit_events_writes_forensics_when_incident_id(server_module, m
                     [
                         {"field": "@timestamp", "value": "2026-05-06 19:16:03.000"},
                         {"field": "verb", "value": "exec"},
-                        {"field": "objectRef.namespace", "value": "atdr-test"},
+                        {"field": "objectRef.namespace", "value": "seks-test"},
                         {"field": "objectRef.name", "value": "attacker"},
                     ],
                 ],
@@ -440,13 +440,13 @@ def test_collect_audit_events_writes_forensics_when_incident_id(server_module, m
 
     result = server_module.collect_audit_events(
         pod_name="attacker",
-        namespace="atdr-test",
+        namespace="seks-test",
         since_minutes=15,
         incident_id="inc-2026-aud",
     )
 
     assert result["status"] == "success"
-    assert result["evidence_uri"].startswith("s3://atdr-forensics-test/incidents/inc-2026-aud/audit-events/attacker/")
+    assert result["evidence_uri"].startswith("s3://seks-forensics-test/incidents/inc-2026-aud/audit-events/attacker/")
     assert "evidence_sha256" in result
 
     evidence_call = next(call for call in put_calls if "/evidence.json" in call["Key"])
@@ -457,14 +457,14 @@ def test_collect_audit_events_writes_forensics_when_incident_id(server_module, m
 
 
 def test_collect_audit_events_rejects_unsafe_namespace(server_module):
-    result = server_module.collect_audit_events(pod_name="attacker", namespace="atdr'; DROP /*")
+    result = server_module.collect_audit_events(pod_name="attacker", namespace="seks'; DROP /*")
     assert result["status"] == "failed"
     assert "unsafe characters" in result["error"]
 
 
 def test_collect_audit_events_reports_missing_env(server_module, monkeypatch):
     monkeypatch.setattr(server_module, "EKS_AUDIT_LOG_GROUP", "")
-    result = server_module.collect_audit_events(pod_name="attacker", namespace="atdr-test")
+    result = server_module.collect_audit_events(pod_name="attacker", namespace="seks-test")
     assert result["status"] == "failed"
     assert "EKS_AUDIT_LOG_GROUP" in result["error"]
 
@@ -488,7 +488,7 @@ def test_collect_audit_events_stops_on_timeout(server_module, monkeypatch):
 
     result = server_module.collect_audit_events(
         pod_name="attacker",
-        namespace="atdr-test",
+        namespace="seks-test",
         poll_timeout_seconds=0,
     )
 
@@ -509,7 +509,7 @@ def test_collect_live_pod_forensics_injects_ephemeral_container(server_module, m
     def _pod_with_status(include_terminated: bool):
         statuses = [
             SimpleNamespace(
-                name="atdr-fx-abc", **(terminated_state.__dict__ if include_terminated else running_state.__dict__)
+                name="seks-fx-abc", **(terminated_state.__dict__ if include_terminated else running_state.__dict__)
             )
         ]
         return SimpleNamespace(
@@ -548,18 +548,18 @@ def test_collect_live_pod_forensics_injects_ephemeral_container(server_module, m
 
     result = server_module.collect_live_pod_forensics(
         pod_name="attacker",
-        namespace="atdr-test",
+        namespace="seks-test",
         profile="process_snapshot",
         incident_id="inc-2026-live",
     )
 
     assert result["status"] == "success"
     assert result["profile"] == "process_snapshot"
-    assert result["debug_container_name"] == "atdr-fx-abc"
+    assert result["debug_container_name"] == "seks-fx-abc"
     assert result["terminated"] is True
     assert result["exit_reason"] == "Completed"
     assert result["evidence_uri"].startswith(
-        "s3://atdr-forensics-test/incidents/inc-2026-live/live-forensics/process_snapshot/attacker/"
+        "s3://seks-forensics-test/incidents/inc-2026-live/live-forensics/process_snapshot/attacker/"
     )
 
     assert patch_calls[0]["name"] == "attacker"
@@ -572,7 +572,7 @@ def test_collect_live_pod_forensics_injects_ephemeral_container(server_module, m
     payload = json.loads(evidence_call["Body"].decode("utf-8"))
     assert payload["kind"] == "live_pod_forensics"
     assert payload["profile"] == "process_snapshot"
-    assert payload["output"].startswith("stdout of atdr-fx-abc")
+    assert payload["output"].startswith("stdout of seks-fx-abc")
     assert payload["terminated"] is True
 
 
@@ -587,7 +587,7 @@ def test_collect_live_pod_forensics_rejects_unknown_profile(server_module, monke
     monkeypatch.setattr(server_module, "CORE", CoreApi())
     result = server_module.collect_live_pod_forensics(
         pod_name="attacker",
-        namespace="atdr-test",
+        namespace="seks-test",
         profile="rce_shell",
     )
     assert result["status"] == "failed"
@@ -597,7 +597,7 @@ def test_collect_live_pod_forensics_rejects_unknown_profile(server_module, monke
 def test_collect_live_pod_forensics_rejects_invalid_pod_name(server_module):
     result = server_module.collect_live_pod_forensics(
         pod_name="attacker; rm -rf /",
-        namespace="atdr-test",
+        namespace="seks-test",
         profile="process_snapshot",
     )
     assert result["status"] == "failed"
@@ -612,7 +612,7 @@ def test_collect_live_pod_forensics_reports_watchdog_timeout(server_module, monk
                 status=SimpleNamespace(
                     ephemeral_container_statuses=[
                         SimpleNamespace(
-                            name="atdr-fx-abc",
+                            name="seks-fx-abc",
                             state=SimpleNamespace(terminated=None, running=SimpleNamespace(started_at=None)),
                         )
                     ]
@@ -630,7 +630,7 @@ def test_collect_live_pod_forensics_reports_watchdog_timeout(server_module, monk
 
     result = server_module.collect_live_pod_forensics(
         pod_name="attacker",
-        namespace="atdr-test",
+        namespace="seks-test",
         profile="network_snapshot",
         timeout_seconds=5,
     )
@@ -673,7 +673,7 @@ def test_checkpoint_container_experimental_success(server_module, monkeypatch):
     monkeypatch.setattr(server_module, "S3", S3Client())
 
     result = server_module.checkpoint_container_experimental(
-        pod_name="attacker", namespace="atdr-test", incident_id="inc-2026-criu"
+        pod_name="attacker", namespace="seks-test", incident_id="inc-2026-criu"
     )
     assert result["status"] == "success"
     assert result["archive_path_on_node"] == "/var/lib/kubelet/checkpoints/checkpoint.tar"
@@ -710,7 +710,7 @@ def test_checkpoint_container_experimental_reports_unsupported(server_module, mo
         lambda **_kwargs: ("unsupported", "checkpoint_feature_gate_disabled_or_not_found", None, 404),
     )
 
-    result = server_module.checkpoint_container_experimental(pod_name="attacker", namespace="atdr-test")
+    result = server_module.checkpoint_container_experimental(pod_name="attacker", namespace="seks-test")
 
     assert result["status"] == "unsupported"
     assert "checkpoint_feature_gate_disabled_or_not_found" in result["error"]
@@ -727,7 +727,7 @@ def test_checkpoint_container_experimental_handles_unscheduled_pod(server_module
 
     monkeypatch.setattr(server_module, "CORE", CoreApi())
 
-    result = server_module.checkpoint_container_experimental(pod_name="attacker", namespace="atdr-test")
+    result = server_module.checkpoint_container_experimental(pod_name="attacker", namespace="seks-test")
 
     assert result["status"] == "unsupported"
     assert "pod_not_scheduled_or_has_no_containers" in result["error"]

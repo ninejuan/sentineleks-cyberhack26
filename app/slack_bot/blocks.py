@@ -40,10 +40,10 @@ def slack_date(value: Any, fallback: str = "unknown") -> str:
     return f"<!date^{timestamp}^{{date_short_pretty}} {{time}}|{fallback}>"
 
 
-def status_blocks(cluster_name: str = "atdr-demo") -> list[dict]:
+def status_blocks(cluster_name: str = "seks-demo") -> list[dict]:
     now = slack_date(int(time.time()), "now")
     return [
-        _header("🛡️ ATDR System Status"),
+        _header("🛡️ SEKS System Status"),
         {"type": "divider"},
         _fields_section(
             [
@@ -55,7 +55,7 @@ def status_blocks(cluster_name: str = "atdr-demo") -> list[dict]:
                 ("Storage", "✅ DynamoDB incident ledger"),
             ]
         ),
-        _context("Use `/atdr incidents`, `/atdr report daily`, or `/atdr help` for operations."),
+        _context("Use `/seks incidents`, `/seks report daily`, or `/seks help` for operations."),
     ]
 
 
@@ -63,14 +63,14 @@ def incidents_blocks(incidents: list[dict] | None = None, title: str = "🚨 Rec
     blocks: list[dict] = [_header(title), {"type": "divider"}]
     if not incidents:
         blocks.extend(
-            [_section("_No matching incidents._ 🎉"), _context("Incidents appear after detection events land in ATDR.")]
+            [_section("_No matching incidents._ 🎉"), _context("Incidents appear after detection events land in SEKS.")]
         )
         return blocks
 
     for incident in incidents[:10]:
         blocks.extend(incident_card_blocks(incident, include_actions=True, compact=True))
 
-    blocks.append(_context(f"Showing {len(incidents[:10])} incident(s). Use `/atdr incident <id>` for full details."))
+    blocks.append(_context(f"Showing {len(incidents[:10])} incident(s). Use `/seks incident <id>` for full details."))
     return _trim_blocks(blocks)
 
 
@@ -147,7 +147,7 @@ def ioc_blocks(incident: dict, title: str = "IOCs") -> list[dict]:
         if values:
             fields.append((label.replace("_", " ").title(), "\n".join(f"`{value}`" for value in values[:8])))
     blocks.append(_fields_section(fields))
-    blocks.append(_context("Share IOCs with `/atdr ioc <id>` when coordinating containment."))
+    blocks.append(_context("Share IOCs with `/seks ioc <id>` when coordinating containment."))
     return blocks
 
 
@@ -201,7 +201,7 @@ def report_summary_blocks(report: dict, period: str) -> list[dict]:
     stats = report.get("stats", {})
     severity_counts = stats.get("by_severity", {})
     techniques = stats.get("top_mitre", [])
-    blocks = [_header(f"📊 ATDR {period.title()} Security Report"), {"type": "divider"}]
+    blocks = [_header(f"📊 SEKS {period.title()} Security Report"), {"type": "divider"}]
     blocks.append(
         _fields_section(
             [
@@ -229,7 +229,7 @@ def report_summary_blocks(report: dict, period: str) -> list[dict]:
 
 def oncall_blocks(oncall: str, channel: str) -> list[dict]:
     return [
-        _header("📟 ATDR On-call"),
+        _header("📟 SEKS On-call"),
         _fields_section([("Primary", oncall or "Not configured"), ("Channel", channel or "Not configured")]),
     ]
 
@@ -244,34 +244,34 @@ def action_result_blocks(title: str, incident_id: str, message: str) -> list[dic
 
 def help_blocks() -> list[dict]:
     return [
-        _header("🛡️ ATDR Bot"),
+        _header("🛡️ SEKS Bot"),
         {"type": "divider"},
         _section(
             "*AI Threat Detection & Response for EKS*\n"
-            "ATDR supports SOC triage, on-call workflow, evidence sharing, and MCP-backed remediation approvals."
+            "SEKS supports SOC triage, on-call workflow, evidence sharing, and MCP-backed remediation approvals."
         ),
         _section(
             "*Core*\n"
-            "• `/atdr status` — System health\n"
-            "• `/atdr incidents [open|P1|P2|P3|P4]` — Incident queue\n"
-            "• `/atdr incident <id>` — Full incident detail\n"
-            "• `/atdr help` — This guide"
+            "• `/seks status` — System health\n"
+            "• `/seks incidents [open|P1|P2|P3|P4]` — Incident queue\n"
+            "• `/seks incident <id>` — Full incident detail\n"
+            "• `/seks help` — This guide"
         ),
         _section(
             "*On-call*\n"
-            "• `/atdr oncall` — Current responder\n"
-            "• `/atdr ack <id>` — Acknowledge\n"
-            "• `/atdr assign <id> @user` — Assign owner\n"
-            "• `/atdr escalate <id>` — Escalate\n"
-            "• `/atdr resolve <id> [note]` — Resolve with note"
+            "• `/seks oncall` — Current responder\n"
+            "• `/seks ack <id>` — Acknowledge\n"
+            "• `/seks assign <id> @user` — Assign owner\n"
+            "• `/seks escalate <id>` — Escalate\n"
+            "• `/seks resolve <id> [note]` — Resolve with note"
         ),
         _section(
             "*Security support*\n"
-            "• `/atdr ioc <id>` — Extract IOCs\n"
-            "• `/atdr evidence <id>` — Forensic S3 evidence links\n"
-            "• `/atdr timeline <id>` — Incident timeline\n"
-            "• `/atdr guide <category>` — Runbook summary\n"
-            "• `/atdr report daily|weekly` — Security report"
+            "• `/seks ioc <id>` — Extract IOCs\n"
+            "• `/seks evidence <id>` — Forensic S3 evidence links\n"
+            "• `/seks timeline <id>` — Incident timeline\n"
+            "• `/seks guide <category>` — Runbook summary\n"
+            "• `/seks report daily|weekly` — Security report"
         ),
         _context("Powered by Bedrock Claude • EKS MCP • EKS Pod Identity"),
     ]
@@ -279,7 +279,7 @@ def help_blocks() -> list[dict]:
 
 def unknown_command_blocks(subcommand: str) -> list[dict]:
     return [
-        _section(f"❓ Unknown subcommand: `{subcommand}`\n\nTry `/atdr help` to see available commands."),
+        _section(f"❓ Unknown subcommand: `{subcommand}`\n\nTry `/seks help` to see available commands."),
     ]
 
 

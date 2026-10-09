@@ -22,7 +22,7 @@ def publish_home(user_id: str, config: Config) -> dict[str, Any]:
 def build_home_view(config: Config) -> dict[str, Any]:
     incidents, stats, data_error = _load_home_data(config)
     blocks: list[Block] = [
-        {"type": "header", "text": {"type": "plain_text", "text": "🛡️ ATDR Security Operations Center", "emoji": True}},
+        {"type": "header", "text": {"type": "plain_text", "text": "🛡️ SEKS Security Operations Center", "emoji": True}},
         {"type": "divider"},
         _system_status_section(config, data_error),
         _stats_section(stats, data_error),

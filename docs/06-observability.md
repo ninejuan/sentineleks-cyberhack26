@@ -6,7 +6,7 @@
 
 ## 1. 관측성 스택 개요
 
-ATDR의 관측성 스택은 네 가지 컴포넌트로 구성된다.
+SEKS의 관측성 스택은 네 가지 컴포넌트로 구성된다.
 
 | 컴포넌트 | 역할 | 배포 방식 |
 |----------|------|----------|
@@ -96,7 +96,7 @@ alertmanager:
 
 ### 2.2 커스텀 메트릭
 
-ATDR 전용 메트릭 세 가지를 정의한다. ai-detector, correlator, response-advisor 서비스가 `/metrics` 엔드포인트로 노출한다.
+SEKS 전용 메트릭 세 가지를 정의한다. ai-detector, correlator, response-advisor 서비스가 `/metrics` 엔드포인트로 노출한다.
 
 ```python
 # apps/ai-detector/metrics.py
@@ -104,21 +104,21 @@ from prometheus_client import Counter, Histogram, Gauge
 
 # 탐지 이벤트 수 (소스별, 심각도별)
 detection_events_total = Counter(
-    'atdr_detection_events_total',
+    'seks_detection_events_total',
     'Total number of detection events',
     ['source', 'severity', 'threat_type']
 )
 
 # 대응 실행 수 (액션별, 결과별)
 remediation_executions_total = Counter(
-    'atdr_remediation_executions_total',
+    'seks_remediation_executions_total',
     'Total number of remediation executions',
     ['action', 'result', 'severity']
 )
 
 # 에이전트 응답 시간 (에이전트별)
 agent_response_duration_seconds = Histogram(
-    'atdr_agent_response_duration_seconds',
+    'seks_agent_response_duration_seconds',
     'Agent response duration in seconds',
     ['agent_name'],
     buckets=[0.5, 1, 2, 5, 10, 30, 60, 120]
@@ -126,7 +126,7 @@ agent_response_duration_seconds = Histogram(
 
 # 활성 인시던트 수
 active_incidents_gauge = Gauge(
-    'atdr_active_incidents',
+    'seks_active_incidents',
     'Number of currently active incidents',
     ['severity']
 )
@@ -135,22 +135,22 @@ active_incidents_gauge = Gauge(
 ### 2.3 ServiceMonitor 설정
 
 ```yaml
-# k8s/base/monitoring/servicemonitor-atdr.yaml
+# k8s/base/monitoring/servicemonitor-seks.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: atdr-services
+  name: seks-services
   namespace: monitoring
   labels:
     release: kube-prometheus-stack
 spec:
   namespaceSelector:
     matchNames:
-      - atdr
+      - seks
       - falco
   selector:
     matchLabels:
-      atdr.juany.dev/monitored: "true"
+      seks.juany.dev/monitored: "true"
   endpoints:
     - port: metrics
       interval: 15s
@@ -166,10 +166,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ai-detector
-  namespace: atdr
+  namespace: seks
   labels:
     app: ai-detector
-    atdr.juany.dev/monitored: "true"
+    seks.juany.dev/monitored: "true"
 spec:
   ports:
     - name: metrics
@@ -194,12 +194,12 @@ spec:
 
 | 패널 | 타입 | 쿼리 |
 |------|------|------|
-| 시간별 이벤트 수 | Time series | `sum(rate(atdr_detection_events_total[5m])) by (severity)` |
-| 심각도 분포 | Pie chart | `sum(atdr_detection_events_total) by (severity)` |
-| 소스별 분포 | Bar chart | `sum(atdr_detection_events_total) by (source)` |
-| 위협 유형 Top 10 | Table | `topk(10, sum(atdr_detection_events_total) by (threat_type))` |
-| 최근 1시간 이벤트 수 | Stat | `sum(increase(atdr_detection_events_total[1h]))` |
-| Critical 이벤트 수 | Stat (빨간색) | `sum(increase(atdr_detection_events_total{severity="critical"}[1h]))` |
+| 시간별 이벤트 수 | Time series | `sum(rate(seks_detection_events_total[5m])) by (severity)` |
+| 심각도 분포 | Pie chart | `sum(seks_detection_events_total) by (severity)` |
+| 소스별 분포 | Bar chart | `sum(seks_detection_events_total) by (source)` |
+| 위협 유형 Top 10 | Table | `topk(10, sum(seks_detection_events_total) by (threat_type))` |
+| 최근 1시간 이벤트 수 | Stat | `sum(increase(seks_detection_events_total[1h]))` |
+| Critical 이벤트 수 | Stat (빨간색) | `sum(increase(seks_detection_events_total{severity="critical"}[1h]))` |
 
 패널 레이아웃:
 
@@ -221,13 +221,13 @@ spec:
 
 | 패널 | 타입 | 쿼리 |
 |------|------|------|
-| 활성 인시던트 수 | Stat | `sum(atdr_active_incidents)` |
-| 심각도별 활성 인시던트 | Bar gauge | `sum(atdr_active_incidents) by (severity)` |
-| 대응 성공률 | Stat | `sum(atdr_remediation_executions_total{result="success"}) / sum(atdr_remediation_executions_total)` |
-| MTTR (평균 대응 시간) | Stat | `avg(atdr_agent_response_duration_seconds_sum / atdr_agent_response_duration_seconds_count)` |
-| 에이전트별 응답 시간 | Heatmap | `atdr_agent_response_duration_seconds_bucket` |
-| 대응 액션 분포 | Bar chart | `sum(atdr_remediation_executions_total) by (action)` |
-| 인시던트 타임라인 | Logs panel | Loki: `{job="atdr-incidents"}` |
+| 활성 인시던트 수 | Stat | `sum(seks_active_incidents)` |
+| 심각도별 활성 인시던트 | Bar gauge | `sum(seks_active_incidents) by (severity)` |
+| 대응 성공률 | Stat | `sum(seks_remediation_executions_total{result="success"}) / sum(seks_remediation_executions_total)` |
+| MTTR (평균 대응 시간) | Stat | `avg(seks_agent_response_duration_seconds_sum / seks_agent_response_duration_seconds_count)` |
+| 에이전트별 응답 시간 | Heatmap | `seks_agent_response_duration_seconds_bucket` |
+| 대응 액션 분포 | Bar chart | `sum(seks_remediation_executions_total) by (action)` |
+| 인시던트 타임라인 | Logs panel | Loki: `{job="seks-incidents"}` |
 
 패널 레이아웃:
 
@@ -307,7 +307,7 @@ loki:
         cache_location: /data/loki/boltdb-shipper-cache
         shared_store: s3
       aws:
-        s3: s3://atdr-loki-logs/
+        s3: s3://seks-loki-logs/
         region: ap-northeast-2
 
 promtail:
@@ -336,7 +336,7 @@ config:
     apikey: ""
     minimumpriority: "warning"
     tenant: ""
-    extralabels: "source=falco,cluster=atdr"
+    extralabels: "source=falco,cluster=seks"
     customHeaders: ""
     mutualtls: false
     checkcert: true
@@ -367,7 +367,7 @@ def handler(event, context):
                 "job": "eks-controlplane",
                 "log_group": log_data['logGroup'],
                 "log_stream": log_data['logStream'],
-                "cluster": "atdr"
+                "cluster": "seks"
             },
             "values": [
                 [str(log_event['timestamp'] * 1_000_000), log_event['message']]
@@ -488,18 +488,18 @@ sum(rate(hubble_flows_processed_total{
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: atdr-alerts
+  name: seks-alerts
   namespace: monitoring
   labels:
     release: kube-prometheus-stack
 spec:
   groups:
-    - name: atdr.detection
+    - name: seks.detection
       interval: 30s
       rules:
         - alert: DetectionEventSpike
           expr: |
-            sum(rate(atdr_detection_events_total[5m])) > 10
+            sum(rate(seks_detection_events_total[5m])) > 10
           for: 2m
           labels:
             severity: warning
@@ -510,7 +510,7 @@ spec:
 
         - alert: CriticalEventDetected
           expr: |
-            sum(increase(atdr_detection_events_total{severity="critical"}[5m])) > 0
+            sum(increase(seks_detection_events_total{severity="critical"}[5m])) > 0
           for: 0m
           labels:
             severity: critical
@@ -526,7 +526,7 @@ spec:
         - alert: AgentResponseSlow
           expr: |
             histogram_quantile(0.95,
-              sum(rate(atdr_agent_response_duration_seconds_bucket[5m])) by (agent_name, le)
+              sum(rate(seks_agent_response_duration_seconds_bucket[5m])) by (agent_name, le)
             ) > 30
           for: 5m
           labels:
@@ -539,7 +539,7 @@ spec:
         - alert: AgentResponseTimeout
           expr: |
             histogram_quantile(0.99,
-              sum(rate(atdr_agent_response_duration_seconds_bucket[5m])) by (agent_name, le)
+              sum(rate(seks_agent_response_duration_seconds_bucket[5m])) by (agent_name, le)
             ) > 120
           for: 2m
           labels:
@@ -553,7 +553,7 @@ spec:
 ### 6.3 클러스터 이상 알림
 
 ```yaml
-    - name: atdr.cluster
+    - name: seks.cluster
       interval: 60s
       rules:
         - alert: NodeNotReady
@@ -591,9 +591,9 @@ spec:
 
         - alert: RemediationFailureRate
           expr: |
-            sum(rate(atdr_remediation_executions_total{result="failure"}[10m]))
+            sum(rate(seks_remediation_executions_total{result="failure"}[10m]))
             /
-            sum(rate(atdr_remediation_executions_total[10m])) > 0.2
+            sum(rate(seks_remediation_executions_total[10m])) > 0.2
           for: 5m
           labels:
             severity: warning
@@ -610,7 +610,7 @@ spec:
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: AlertmanagerConfig
 metadata:
-  name: atdr-alertmanager
+  name: seks-alertmanager
   namespace: monitoring
 spec:
   route:

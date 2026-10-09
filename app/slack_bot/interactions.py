@@ -161,9 +161,9 @@ def _handle_shortcut(payload: dict[str, Any], config: Config) -> dict[str, Any]:
     user_id = payload.get("user", {}).get("id", "")
     channel_id = payload.get("channel", {}).get("id", "")
 
-    if callback_id == "atdr_view_status":
+    if callback_id == "seks_view_status":
         modals.open_status_modal(trigger_id, config)
-    elif callback_id == "atdr_ack_incident":
+    elif callback_id == "seks_ack_incident":
         modals.open_ack_incident_modal(trigger_id, config, channel_id, user_id)
 
     return {"statusCode": 200, "body": "ok"}

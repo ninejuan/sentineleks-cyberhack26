@@ -4,7 +4,7 @@
 
 ### 탐지에서 피드백까지
 
-ATDR의 대응 파이프라인은 여섯 단계로 순환한다.
+SEKS의 대응 파이프라인은 여섯 단계로 순환한다.
 
 ```
 탐지 → 분석 → 승인 → 실행 → 검증 → 피드백
@@ -70,7 +70,7 @@ MCP 서버는 EKS 클러스터 내부에서 실행된다. AWS 권한이 필요�
 | `cordon_node` | 노드 스케줄링 비활성화 | `nodes:patch` |
 | `drain_node` | 노드 드레인 | `nodes:patch`, `pods:evict` |
 | `capture_hubble_flows` | Hubble Relay gRPC로 실제 네트워크 flow + CiliumEndpoints 스냅샷을 S3에 저장 | `ciliumendpoints:list`, `s3:PutObject`, Hubble Relay 접근 |
-| `collect_tetragon_timeline` | 최근 30분의 Tetragon 프로세스/파일/네트워크 이벤트 타임라인을 DynamoDB에서 조회 | `dynamodb:Query`(`atdr-tetragon-events`) |
+| `collect_tetragon_timeline` | 최근 30분의 Tetragon 프로세스/파일/네트워크 이벤트 타임라인을 DynamoDB에서 조회 | `dynamodb:Query`(`seks-tetragon-events`) |
 | `collect_audit_events` | EKS audit log 대상 CloudWatch Logs Insights 쿼리로 pod 관련 API 이벤트 추출 | `logs:StartQuery,GetQueryResults,StopQuery` |
 | `collect_live_pod_forensics` | Ephemeral container 주입 후 서버 소유 프로파일(`process_snapshot`/`network_snapshot`/`filesystem_triage`/`env_redacted`) 실행 | `pods/ephemeralcontainers:get,patch,update`, `pods/log:get` |
 | `checkpoint_container_experimental` | kubelet `/checkpoint` 엔드포인트로 CRIU 기반 컨테이너 체크포인트 시도 (미지원 노드는 `unsupported` + `fallback_recommendation=collect_live_pod_forensics`) | `nodes:get`, `nodes/checkpoint:create`, in-cluster ServiceAccount 토큰 |
@@ -215,7 +215,7 @@ kubectl get pods -n production -l app=payment-service
 kubectl get deployment payment-service -n production -o jsonpath='{.spec.replicas}'
 
 # 포렌식 증거 저장 확인
-aws s3 ls s3://atdr-forensics/checkpoints/inc-20260504-001/
+aws s3 ls s3://seks-forensics/checkpoints/inc-20260504-001/
 ```
 
 ---
@@ -241,8 +241,8 @@ metadata:
   name: default-deny-all
   namespace: compromised-ns
   labels:
-    atdr.juany.dev/managed: "true"
-    atdr.juany.dev/incident-id: "inc-20260504-002"
+    seks.juany.dev/managed: "true"
+    seks.juany.dev/incident-id: "inc-20260504-002"
 spec:
   podSelector: {}   # 네임스페이스 내 모든 파드
   policyTypes:
@@ -291,7 +291,7 @@ kind: ClusterRoleBinding
 metadata:
   name: suspicious-admin-binding
   labels:
-    atdr.juany.dev/modified: "true"
+    seks.juany.dev/modified: "true"
 subjects:
 - kind: ServiceAccount
   name: payment-service
@@ -486,7 +486,7 @@ P1 타임아웃 시 자동으로 실행되는 최소 격리 액션은 서비스 
 결과 수집 (성공/실패, 소요 시간, 부작용)
      │
      ▼
-S3 런북 조회 (s3://atdr-runbooks/{threat_type}.json)
+S3 런북 조회 (s3://seks-runbooks/{threat_type}.json)
      │
      ▼
 결과 반영 (성공률, 평균 소요 시간, 주의사항 업데이트)
@@ -554,12 +554,12 @@ metadata:
   name: isolate-compromised-pod
   namespace: production
   labels:
-    atdr.juany.dev/managed: "true"
-    atdr.juany.dev/incident-id: "inc-20260504-001"
-    atdr.juany.dev/action: "pod-isolation"
+    seks.juany.dev/managed: "true"
+    seks.juany.dev/incident-id: "inc-20260504-001"
+    seks.juany.dev/action: "pod-isolation"
   annotations:
-    atdr.juany.dev/created-at: "2026-05-04T10:00:00Z"
-    atdr.juany.dev/expires-at: "2026-05-04T22:00:00Z"
+    seks.juany.dev/created-at: "2026-05-04T10:00:00Z"
+    seks.juany.dev/expires-at: "2026-05-04T22:00:00Z"
 spec:
   podSelector:
     matchLabels:
@@ -579,8 +579,8 @@ metadata:
   name: default-deny-all
   namespace: compromised-ns
   labels:
-    atdr.juany.dev/managed: "true"
-    atdr.juany.dev/action: "namespace-isolation"
+    seks.juany.dev/managed: "true"
+    seks.juany.dev/action: "namespace-isolation"
 spec:
   podSelector: {}
   policyTypes:
@@ -597,7 +597,7 @@ metadata:
   name: allow-monitoring-only
   namespace: compromised-ns
   labels:
-    atdr.juany.dev/managed: "true"
+    seks.juany.dev/managed: "true"
 spec:
   podSelector: {}
   policyTypes:
@@ -620,9 +620,9 @@ kind: ClusterRoleBinding
 metadata:
   name: payment-service-binding
   labels:
-    atdr.juany.dev/modified: "true"
-    atdr.juany.dev/original-role: "cluster-admin"
-    atdr.juany.dev/incident-id: "inc-20260504-003"
+    seks.juany.dev/modified: "true"
+    seks.juany.dev/original-role: "cluster-admin"
+    seks.juany.dev/incident-id: "inc-20260504-003"
 subjects:
 - kind: ServiceAccount
   name: payment-service
@@ -642,7 +642,7 @@ metadata:
   name: quarantine-readonly
   namespace: production
   labels:
-    atdr.juany.dev/managed: "true"
+    seks.juany.dev/managed: "true"
 rules:
 - apiGroups: [""]
   resources: ["pods"]

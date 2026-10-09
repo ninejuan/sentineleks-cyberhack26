@@ -9,7 +9,7 @@ from app.shared.json_extract import extract_json
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-SYSTEM_PROMPT = """You are a security incident triage agent for ATDR (AI Threat Detection and Response).
+SYSTEM_PROMPT = """You are a security incident triage agent for SEKS (AI Threat Detection and Response).
 Given a structured security event summary, determine the severity and priority.
 
 Severity levels:

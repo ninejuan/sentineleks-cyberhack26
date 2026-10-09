@@ -52,17 +52,17 @@ def _incident_event():
                 "execution_log": [
                     {
                         "tool": "checkpoint_pod",
-                        "input": {"pod_name": "attacker", "namespace": "atdr-test"},
+                        "input": {"pod_name": "attacker", "namespace": "seks-test"},
                         "result": {
                             "status": "success",
                             "action": "checkpoint_pod",
-                            "evidence_uri": "s3://atdr-forensics-test/incidents/inc-2026-synth-1/checkpoints/attacker/2026/evidence.json",
+                            "evidence_uri": "s3://seks-forensics-test/incidents/inc-2026-synth-1/checkpoints/attacker/2026/evidence.json",
                             "evidence_sha256": "a" * 64,
                         },
                     },
                     {
                         "tool": "delete_pod",
-                        "input": {"pod_name": "attacker", "namespace": "atdr-test"},
+                        "input": {"pod_name": "attacker", "namespace": "seks-test"},
                         "result": {"status": "success", "action": "delete_pod"},
                     },
                     {"type": "completion", "text": "done"},
@@ -74,7 +74,7 @@ def _incident_event():
 
 
 def test_lambda_handler_persists_parsed_synthesis(bedrock_patch, s3_put_capture, context, monkeypatch):
-    monkeypatch.setenv("FORENSICS_BUCKET", "atdr-forensics-test")
+    monkeypatch.setenv("FORENSICS_BUCKET", "seks-forensics-test")
     monkeypatch.setattr(handler, "_update_incident", lambda *args, **kwargs: None)
 
     synthesis_payload = {
@@ -98,7 +98,7 @@ def test_lambda_handler_persists_parsed_synthesis(bedrock_patch, s3_put_capture,
             }
         ],
         "blast_radius": {
-            "affected_namespaces": ["atdr-test"],
+            "affected_namespaces": ["seks-test"],
             "affected_pods": ["attacker"],
             "lateral_movement_observed": False,
             "privilege_escalation_observed": True,
@@ -132,7 +132,7 @@ def test_lambda_handler_persists_parsed_synthesis(bedrock_patch, s3_put_capture,
     assert "Forensic Synthesis" in system_prompt
     user_message = bedrock.invoke.call_args.kwargs["user_message"]
     assert "inc-2026-synth-1" in user_message
-    assert "s3://atdr-forensics-test" in user_message
+    assert "s3://seks-forensics-test" in user_message
 
     kinds = {call["Key"].rsplit("/", 1)[-1] for call in s3_put_capture}
     assert kinds == {"synthesis-report.md", "synthesis.json", "timeline.json", "iocs.json", "ttps.json"}
@@ -143,7 +143,7 @@ def test_lambda_handler_persists_parsed_synthesis(bedrock_patch, s3_put_capture,
 
 
 def test_lambda_handler_records_parse_error_on_invalid_json(bedrock_patch, s3_put_capture, context, monkeypatch):
-    monkeypatch.setenv("FORENSICS_BUCKET", "atdr-forensics-test")
+    monkeypatch.setenv("FORENSICS_BUCKET", "seks-forensics-test")
     monkeypatch.setattr(handler, "_update_incident", lambda *args, **kwargs: None)
     bedrock_patch("this is not json at all")
 
@@ -158,7 +158,7 @@ def test_lambda_handler_records_parse_error_on_invalid_json(bedrock_patch, s3_pu
 
 
 def test_lambda_handler_tolerates_bedrock_failure(bedrock_patch, s3_put_capture, context, monkeypatch):
-    monkeypatch.setenv("FORENSICS_BUCKET", "atdr-forensics-test")
+    monkeypatch.setenv("FORENSICS_BUCKET", "seks-forensics-test")
     monkeypatch.setattr(handler, "_update_incident", lambda *args, **kwargs: None)
 
     client = MagicMock()
@@ -176,7 +176,7 @@ def test_lambda_handler_tolerates_bedrock_failure(bedrock_patch, s3_put_capture,
 
 
 def test_lambda_handler_strips_markdown_fences(bedrock_patch, s3_put_capture, context, monkeypatch):
-    monkeypatch.setenv("FORENSICS_BUCKET", "atdr-forensics-test")
+    monkeypatch.setenv("FORENSICS_BUCKET", "seks-forensics-test")
     monkeypatch.setattr(handler, "_update_incident", lambda *args, **kwargs: None)
 
     synthesis_payload = {
