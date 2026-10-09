@@ -11,14 +11,22 @@ HLM          := helm --kube-context $(CLUSTER_NAME)
 LAMBDA_MOD   := terraform/modules/lambda
 LAYER_DIR    := build/layer/python
 
-.PHONY: infra-up infra-down infra-down-preflight platform-up platform-down deploy-lambdas deploy-layer \
+.PHONY: tfstate-bucket infra-up infra-down infra-down-preflight platform-up platform-down deploy-lambdas deploy-layer \
         all-up all-down status lint lint-fix test build build-layer build-lambdas build-mcp \
         sync-runbooks create-opensearch-index create-kb kb-sync \
         secrets sponsor-secrets sponsor-setup push-gate-image build-gate demo-up demo-attack scale-down scale-up scale-status backup-db clean slack-manifest
 
 ## ─── Infrastructure ──────────────────────────────────────────────
 
-infra-up: build
+tfstate-bucket:
+	@BUCKET=$$(sed -n 's/^ *bucket *= *"\(.*\)"/\1/p' $(TF_DIR)/backend.tf); \
+	if aws s3api head-bucket --bucket $$BUCKET 2>/dev/null; then echo "State bucket $$BUCKET exists."; else \
+		aws s3api create-bucket --bucket $$BUCKET --region $(REGION) >/dev/null && \
+		aws s3api put-bucket-versioning --bucket $$BUCKET --versioning-configuration Status=Enabled && \
+		aws s3api put-public-access-block --bucket $$BUCKET --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true && \
+		echo "State bucket $$BUCKET created."; fi
+
+infra-up: build tfstate-bucket
 	cd $(TF_DIR) && terraform init && terraform apply -auto-approve -target=aws_ecr_repository.gate
 	@$(MAKE) -s push-gate-image GATE_TAG=bootstrap
 	cd $(TF_DIR) && terraform apply -auto-approve
