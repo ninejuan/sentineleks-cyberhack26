@@ -165,8 +165,10 @@ class PostmortemPublisher:
             return result
 
     def _permalink(self, canvas_id: str) -> str:
+        """Canvas URL from the workspace URL (auth.test) — avoids needing the files:read scope."""
         try:
-            info = slack_call(self._token, "files.info", {"file": canvas_id})
-            return str(info.get("file", {}).get("permalink", ""))
+            identity = slack_call(self._token, "auth.test", {})
         except SlackApiError:
             return ""
+        base, team = str(identity.get("url", "")).rstrip("/"), identity.get("team_id", "")
+        return f"{base}/docs/{team}/{canvas_id}" if base and team else ""
