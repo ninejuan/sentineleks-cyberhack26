@@ -111,22 +111,30 @@ module "lambda" {
   execution_role_arn       = module.iam.lambda_agent_role_arn
   step_functions_role_arn  = module.iam.step_functions_role_arn
   sqs_queue_arn            = module.sns_sqs.sqs_queue_arn
-  opensearch_endpoint      = module.opensearch.collection_endpoint
   eks_cluster_name         = module.eks.cluster_name
-  dynamodb_table_name      = aws_dynamodb_table.incidents.name
-  knowledge_base_id        = var.knowledge_base_id
   mcp_auth_secret_id       = aws_secretsmanager_secret.mcp_auth_token.name
   mcp_server_url_secret_id = aws_secretsmanager_secret.mcp_server_url.name
   forensics_bucket_name    = module.s3.forensics_bucket_id
+  tenant_id                = "${var.project_name}-${var.environment}"
+  akash_secret_id          = aws_secretsmanager_secret.akashml.name
+  senso_secret_id          = aws_secretsmanager_secret.senso.name
+  clickhouse_secret_id     = aws_secretsmanager_secret.clickhouse.name
+  mongodb_secret_id        = aws_secretsmanager_secret.mongodb.name
+  slack_incident_channel   = var.slack_incident_channel
+  gate_image_uri           = "${aws_ecr_repository.gate.repository_url}:${var.gate_image_tag}"
 }
 
 module "slack" {
   source = "../../modules/slack"
 
-  project             = var.project_name
-  execution_role_arn  = module.iam.lambda_agent_role_arn
-  dynamodb_table_name = aws_dynamodb_table.incidents.name
-  lambda_layer_arn    = module.lambda.lambda_layer_arn
+  project            = var.project_name
+  execution_role_arn = module.iam.lambda_agent_role_arn
+  lambda_layer_arn   = module.lambda.lambda_layer_arn
+  lambda_vpc_config = {
+    subnet_ids         = module.vpc.private_subnet_ids
+    security_group_ids = [module.lambda.lambda_security_group_id]
+  }
+  mongodb_secret_id = aws_secretsmanager_secret.mongodb.name
 }
 
 resource "aws_dynamodb_table" "incidents" {
@@ -261,6 +269,52 @@ resource "aws_secretsmanager_secret" "mcp_server_url" {
 
   tags = {
     Name = "${var.project_name}-mcp-server-url"
+  }
+}
+
+resource "aws_secretsmanager_secret" "akashml" {
+  name                    = "${var.project_name}/akashml/api-key"
+  recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.project_name}-akashml-api-key"
+  }
+}
+
+resource "aws_secretsmanager_secret" "senso" {
+  name                    = "${var.project_name}/senso/api-key"
+  recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.project_name}-senso-api-key"
+  }
+}
+
+resource "aws_secretsmanager_secret" "clickhouse" {
+  name                    = "${var.project_name}/clickhouse/credentials"
+  recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.project_name}-clickhouse-credentials"
+  }
+}
+
+resource "aws_secretsmanager_secret" "mongodb" {
+  name                    = "${var.project_name}/mongodb/uri"
+  recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.project_name}-mongodb-uri"
+  }
+}
+
+resource "aws_ecr_repository" "gate" {
+  name                 = "${var.project_name}/gate-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
   }
 }
 

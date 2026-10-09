@@ -26,6 +26,17 @@ locals {
       model_id    = var.bedrock_smart_model_id
     }
   }
+
+  sponsor_env = {
+    TENANT_ID              = var.tenant_id
+    BEDROCK_FAST_MODEL_ID  = var.bedrock_fast_model_id
+    BEDROCK_SMART_MODEL_ID = var.bedrock_smart_model_id
+    AKASH_SECRET_ID        = var.akash_secret_id
+    SENSO_SECRET_ID        = var.senso_secret_id
+    CLICKHOUSE_SECRET_ID   = var.clickhouse_secret_id
+    MONGODB_SECRET_ID      = var.mongodb_secret_id
+    SLACK_INCIDENT_CHANNEL = var.slack_incident_channel
+  }
 }
 
 resource "aws_security_group" "lambda" {
@@ -86,19 +97,16 @@ resource "aws_lambda_function" "agent" {
   }
 
   environment {
-    variables = {
+    variables = merge(local.sponsor_env, {
       AGENT_TYPE               = each.key
       BEDROCK_MODEL_ID         = each.value.model_id
-      OPENSEARCH_ENDPOINT      = var.opensearch_endpoint
-      KNOWLEDGE_BASE_ID        = var.knowledge_base_id
       EKS_CLUSTER_NAME         = var.eks_cluster_name
-      DYNAMODB_TABLE_NAME      = var.dynamodb_table_name
       MCP_AUTH_SECRET_ID       = var.mcp_auth_secret_id
       MCP_SERVER_URL_SECRET_ID = var.mcp_server_url_secret_id
       FORENSICS_BUCKET         = var.forensics_bucket_name
       PROJECT                  = var.project
       LOG_LEVEL                = "INFO"
-    }
+    })
   }
 
   tracing_config {
@@ -128,13 +136,14 @@ resource "aws_lambda_function" "ingestor" {
   reserved_concurrent_executions = 2
 
   environment {
-    variables = {
+    variables = merge(local.sponsor_env, {
       STATE_MACHINE_ARN     = aws_sfn_state_machine.agent_pipeline.arn
       DEDUP_TABLE_NAME      = "${var.project}-event-dedup"
       TETRAGON_EVENTS_TABLE = "${var.project}-tetragon-events"
+      EKS_CLUSTER_NAME      = var.eks_cluster_name
       PROJECT               = var.project
       LOG_LEVEL             = "INFO"
-    }
+    })
   }
 
   tracing_config {
@@ -190,11 +199,16 @@ resource "aws_lambda_function" "approval_notifier" {
   memory_size   = 256
   layers        = [aws_lambda_layer_version.dependencies.arn]
 
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
   environment {
-    variables = {
+    variables = merge(local.sponsor_env, {
       PROJECT   = var.project
       LOG_LEVEL = "INFO"
-    }
+    })
   }
 
   tracing_config {
@@ -207,6 +221,81 @@ resource "aws_lambda_function" "approval_notifier" {
 
   lifecycle {
     ignore_changes = [filename, source_code_hash]
+  }
+}
+
+resource "aws_lambda_function" "publisher" {
+  function_name = "${var.project}-publisher"
+  role          = var.execution_role_arn
+  runtime       = "python3.12"
+  handler       = "handler.lambda_handler"
+  filename      = "${path.module}/publisher.zip"
+  timeout       = 60
+  memory_size   = 256
+  layers        = [aws_lambda_layer_version.dependencies.arn]
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  environment {
+    variables = merge(local.sponsor_env, {
+      PROJECT   = var.project
+      LOG_LEVEL = "INFO"
+    })
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Name = "${var.project}-publisher"
+  }
+
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+}
+
+resource "aws_lambda_function" "gate" {
+  function_name = "${var.project}-gate-agent"
+  role          = var.execution_role_arn
+  package_type  = "Image"
+  image_uri     = var.gate_image_uri
+  timeout       = 180
+  memory_size   = 2048
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  environment {
+    variables = merge(local.sponsor_env, {
+      AGENT_TYPE                 = "gate"
+      BEDROCK_MODEL_ID           = var.bedrock_smart_model_id
+      PROJECT                    = var.project
+      LOG_LEVEL                  = "INFO"
+      SEMGREP_SEND_METRICS       = "off"
+      HOME                       = "/tmp"
+      XDG_CONFIG_HOME            = "/tmp"
+      SEMGREP_VERSION_CACHE_PATH = "/tmp/semgrep_version"
+    })
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Name  = "${var.project}-gate-agent"
+    Agent = "gate"
+  }
+
+  lifecycle {
+    ignore_changes = [image_uri]
   }
 }
 
@@ -330,7 +419,36 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
           Next        = "DegradedNotify"
           ResultPath  = "$.error"
         }]
-        Next = "RemediationAgent"
+        Next = "GateAgentAuto"
+      }
+
+      GateAgentAuto = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.gate.arn
+          "Payload.$"  = "$"
+        }
+        ResultSelector = {
+          "body.$" = "$.Payload"
+        }
+        ResultPath = "$.gate"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          Next        = "DegradedNotify"
+          ResultPath  = "$.error"
+        }]
+        Next = "CheckGateAuto"
+      }
+
+      CheckGateAuto = {
+        Type = "Choice"
+        Choices = [{
+          Variable      = "$.gate.body.passed"
+          BooleanEquals = true
+          Next          = "RemediationAgent"
+        }]
+        Default = "DegradedNotify"
       }
 
       SolutionAgentWithApproval = {
@@ -355,7 +473,42 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
           Next        = "DegradedNotify"
           ResultPath  = "$.error"
         }]
-        Next = "WaitForApproval"
+        Next = "GateAgent"
+      }
+
+      GateAgent = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.gate.arn
+          "Payload.$"  = "$"
+        }
+        ResultSelector = {
+          "body.$" = "$.Payload"
+        }
+        ResultPath = "$.gate"
+        Retry = [{
+          ErrorEquals     = ["Lambda.ServiceException", "Lambda.TooManyRequestsException"]
+          IntervalSeconds = 3
+          BackoffRate     = 2
+          MaxAttempts     = 2
+        }]
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          Next        = "DegradedNotify"
+          ResultPath  = "$.error"
+        }]
+        Next = "CheckGate"
+      }
+
+      CheckGate = {
+        Type = "Choice"
+        Choices = [{
+          Variable      = "$.gate.body.passed"
+          BooleanEquals = true
+          Next          = "WaitForApproval"
+        }]
+        Default = "DegradedNotify"
       }
 
       WaitForApproval = {
@@ -432,6 +585,25 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
         }]
         Catch = [{
           ErrorEquals = ["States.ALL"]
+          Next        = "PublishPostmortem"
+          ResultPath  = "$.error"
+        }]
+        Next = "PublishPostmortem"
+      }
+
+      PublishPostmortem = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.publisher.arn
+          "Payload.$"  = "$"
+        }
+        ResultSelector = {
+          "body.$" = "$.Payload"
+        }
+        ResultPath = "$.publish"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
           Next        = "DegradedNotify"
           ResultPath  = "$.error"
         }]
@@ -445,7 +617,7 @@ resource "aws_sfn_state_machine" "agent_pipeline" {
 
       RejectedEnd = {
         Type = "Pass"
-        End  = true
+        Next = "PublishPostmortem"
       }
 
       ApprovalTimeout = {

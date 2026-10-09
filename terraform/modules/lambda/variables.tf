@@ -49,25 +49,8 @@ variable "sns_topic_arn" {
   default     = ""
 }
 
-variable "opensearch_endpoint" {
-  description = "OpenSearch Serverless endpoint"
-  type        = string
-  default     = ""
-}
-
-variable "knowledge_base_id" {
-  description = "Bedrock Knowledge Base ID"
-  type        = string
-  default     = ""
-}
-
 variable "eks_cluster_name" {
   description = "EKS cluster name for Remediation Agent"
-  type        = string
-}
-
-variable "dynamodb_table_name" {
-  description = "DynamoDB table name for incident records"
   type        = string
 }
 
@@ -85,5 +68,41 @@ variable "mcp_server_url_secret_id" {
 
 variable "forensics_bucket_name" {
   description = "Name of the forensics S3 bucket where evidence manifests and synthesis reports are written"
+  type        = string
+}
+
+variable "tenant_id" {
+  description = "Tenant identifier written to every sensor event and incident"
+  type        = string
+}
+
+variable "akash_secret_id" {
+  description = "Secrets Manager secret ID holding {\"api_key\"} for AkashML"
+  type        = string
+}
+
+variable "senso_secret_id" {
+  description = "Secrets Manager secret ID holding {\"api_key\"} for Senso"
+  type        = string
+}
+
+variable "clickhouse_secret_id" {
+  description = "Secrets Manager secret ID holding {host, username, password} for ClickHouse Cloud"
+  type        = string
+}
+
+variable "mongodb_secret_id" {
+  description = "Secrets Manager secret ID holding {\"uri\"} for MongoDB Atlas"
+  type        = string
+}
+
+variable "slack_incident_channel" {
+  description = "Slack channel ID for approval cards and incident Canvas links"
+  type        = string
+  default     = ""
+}
+
+variable "gate_image_uri" {
+  description = "ECR image URI (with tag) for the Semgrep gate container Lambda"
   type        = string
 }

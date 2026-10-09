@@ -70,3 +70,11 @@ output "mcp_server_repository_url" {
 output "mcp_nlb_security_group_id" {
   value = aws_security_group.mcp_nlb.id
 }
+
+output "nat_public_ip" {
+  value = module.vpc.nat_public_ip
+}
+
+output "gate_repository_url" {
+  value = aws_ecr_repository.gate.repository_url
+}

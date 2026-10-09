@@ -28,8 +28,14 @@ variable "admin_principal_arn" {
   default     = ""
 }
 
-variable "knowledge_base_id" {
-  description = "Bedrock Knowledge Base ID. Set by make create-kb."
+variable "slack_incident_channel" {
+  description = "Slack channel ID (C...) that receives approval cards and incident Canvas links"
   type        = string
   default     = ""
+}
+
+variable "gate_image_tag" {
+  description = "Tag of the Semgrep gate image pushed by make build-gate"
+  type        = string
+  default     = "bootstrap"
 }

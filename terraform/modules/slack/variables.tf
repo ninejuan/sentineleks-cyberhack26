@@ -8,10 +8,17 @@ variable "execution_role_arn" {
   type        = string
 }
 
-variable "dynamodb_table_name" {
-  description = "DynamoDB table name for incident/approval state"
+variable "mongodb_secret_id" {
+  description = "Secrets Manager secret ID holding {\"uri\"} for MongoDB Atlas (incidents + approval_audit)"
   type        = string
-  default     = ""
+}
+
+variable "lambda_vpc_config" {
+  description = "Private subnets + security group so the bot egresses through the NAT EIP allow-listed in Atlas"
+  type = object({
+    subnet_ids         = list(string)
+    security_group_ids = list(string)
+  })
 }
 
 variable "lambda_layer_arn" {

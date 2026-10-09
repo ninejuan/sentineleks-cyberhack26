@@ -67,11 +67,16 @@ resource "aws_lambda_function" "slack_bot" {
   memory_size   = 256
   layers        = var.lambda_layer_arn != "" ? [var.lambda_layer_arn] : []
 
+  vpc_config {
+    subnet_ids         = var.lambda_vpc_config.subnet_ids
+    security_group_ids = var.lambda_vpc_config.security_group_ids
+  }
+
   environment {
     variables = {
-      PROJECT             = var.project
-      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
-      LOG_LEVEL           = "INFO"
+      PROJECT           = var.project
+      MONGODB_SECRET_ID = var.mongodb_secret_id
+      LOG_LEVEL         = "INFO"
     }
   }
 

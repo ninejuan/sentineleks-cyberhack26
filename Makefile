@@ -14,7 +14,7 @@ LAYER_DIR    := build/layer/python
 .PHONY: infra-up infra-down infra-down-preflight platform-up platform-down deploy-lambdas deploy-layer \
         all-up all-down status lint lint-fix test build build-layer build-lambdas build-mcp \
         sync-runbooks create-opensearch-index create-kb kb-sync \
-        secrets scale-down scale-up scale-status backup-db clean slack-manifest
+        secrets sponsor-secrets sponsor-setup build-gate scale-down scale-up scale-status backup-db clean slack-manifest
 
 ## ─── Infrastructure ──────────────────────────────────────────────
 
@@ -258,6 +258,10 @@ deploy-lambdas: build-lambdas
 		--zip-file fileb://$(LAMBDA_MOD)/approval_notifier.zip \
 		--region $(REGION) --no-cli-pager
 	@aws lambda update-function-code \
+		--function-name $(PROJECT)-publisher \
+		--zip-file fileb://$(LAMBDA_MOD)/publisher.zip \
+		--region $(REGION) --no-cli-pager
+	@aws lambda update-function-code \
 		--function-name $(PROJECT)-slack-bot \
 		--zip-file fileb://terraform/modules/slack/slack_bot.zip \
 		--region $(REGION) --no-cli-pager
@@ -273,7 +277,7 @@ deploy-layer: build-layer
 
 ## ─── Full Lifecycle ──────────────────────────────────────────────
 
-all-up: infra-up secrets sync-runbooks create-opensearch-index create-kb kb-sync platform-up deploy-lambdas
+all-up: infra-up secrets sponsor-secrets sponsor-setup platform-up deploy-layer deploy-lambdas build-gate
 	@echo "Full deployment complete."
 
 sync-runbooks:
@@ -385,6 +389,14 @@ secrets:
 		echo "  $(PROJECT)/mcp/auth-token: done"
 	@echo "=== Secrets configured ==="
 
+sponsor-secrets:
+	@test -f .credentials || (echo "ERROR: .credentials not found (see docs/research-notes.md)"; exit 1)
+	@PROJECT=$(PROJECT) REGION=$(REGION) python3 scripts/put_sponsor_secrets.py .credentials
+
+sponsor-setup:
+	@set -a && . ./.credentials && set +a && PYTHONPATH=. python3 scripts/setup_datastores.py
+	@set -a && . ./.credentials && set +a && PYTHONPATH=. python3 scripts/ingest_knowledge.py
+
 ## ─── Scaling ─────────────────────────────────────────────────────
 
 scale-down:
@@ -430,61 +442,24 @@ build-layer:
 	@rm -rf build/layer
 	@rm -f $(LAMBDA_MOD)/layer.zip
 	@mkdir -p $(LAYER_DIR)
-	@pip install -r requirements.txt -t $(LAYER_DIR) --quiet
+	@pip install -r requirements.txt -t $(LAYER_DIR) --quiet \
+		--platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all:
 	@python3 -c 'from pathlib import Path; import zipfile; root=Path("build/layer"); out=Path("$(LAMBDA_MOD)/layer.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()'
 	@echo "Layer: $(LAMBDA_MOD)/layer.zip"
 
 build-lambdas:
 	@rm -rf build/lambdas
-	@rm -f $(LAMBDA_MOD)/summary.zip $(LAMBDA_MOD)/triage.zip $(LAMBDA_MOD)/solution.zip $(LAMBDA_MOD)/remediation.zip $(LAMBDA_MOD)/forensic_synthesis.zip
-	@rm -f $(LAMBDA_MOD)/ingestor.zip $(LAMBDA_MOD)/degraded_notifier.zip $(LAMBDA_MOD)/approval_notifier.zip
-	@rm -f terraform/modules/slack/slack_bot.zip
-	@for agent in summary triage solution remediation forensic_synthesis; do \
-		mkdir -p build/lambdas/$$agent/app/agents && \
-		cp app/agents/$$agent/*.py build/lambdas/$$agent/ && \
-		cp -r app/agents/$$agent build/lambdas/$$agent/app/agents/$$agent && \
-		cp -r app/shared build/lambdas/$$agent/app_shared && \
-		cd build/lambdas/$$agent && \
-		mkdir -p app/shared && mv app_shared/* app/shared/ && rmdir app_shared && \
-		touch app/__init__.py app/agents/__init__.py app/agents/$$agent/__init__.py app/shared/__init__.py && \
-		python3 -c 'from pathlib import Path; import zipfile; root=Path("."); out=Path("../../../$(LAMBDA_MOD)/'"$$agent"'.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()' && \
-		cd ../../..; \
-	done
-	@mkdir -p build/lambdas/ingestor && \
-		cp app/ingestor/*.py build/lambdas/ingestor/ && \
-		cp -r app/shared build/lambdas/ingestor/app_shared && \
-		cd build/lambdas/ingestor && \
-		mkdir -p app/shared && mv app_shared/* app/shared/ && rmdir app_shared && \
-		touch app/__init__.py app/shared/__init__.py && \
-		python3 -c 'from pathlib import Path; import zipfile; root=Path("."); out=Path("../../../$(LAMBDA_MOD)/ingestor.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()' && \
-		cd ../../..
-	@mkdir -p build/lambdas/degraded_notifier && \
-		cp app/degraded_notifier/*.py build/lambdas/degraded_notifier/ && \
-		cp -r app/shared build/lambdas/degraded_notifier/app_shared && \
-		cd build/lambdas/degraded_notifier && \
-		mkdir -p app/shared && mv app_shared/* app/shared/ && rmdir app_shared && \
-		touch app/__init__.py app/shared/__init__.py && \
-		python3 -c 'from pathlib import Path; import zipfile; root=Path("."); out=Path("../../../$(LAMBDA_MOD)/degraded_notifier.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()' && \
-		cd ../../..
-	@mkdir -p build/lambdas/approval_notifier && \
-		cp app/approval_notifier/*.py build/lambdas/approval_notifier/ && \
-		cp -r app/shared build/lambdas/approval_notifier/app_shared && \
-		cd build/lambdas/approval_notifier && \
-		mkdir -p app/shared && mv app_shared/* app/shared/ && rmdir app_shared && \
-		touch app/__init__.py app/shared/__init__.py && \
-		python3 -c 'from pathlib import Path; import zipfile; root=Path("."); out=Path("../../../$(LAMBDA_MOD)/approval_notifier.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()' && \
-		cd ../../..
-	@mkdir -p build/lambdas/slack_bot && \
-		cp app/slack_bot/handler.py build/lambdas/slack_bot/ && \
-		mkdir -p build/lambdas/slack_bot/app/slack_bot && \
-		cp app/slack_bot/*.py build/lambdas/slack_bot/app/slack_bot/ && \
-		cp -r app/shared build/lambdas/slack_bot/app_shared && \
-		cd build/lambdas/slack_bot && \
-		mkdir -p app/shared && mv app_shared/* app/shared/ && rmdir app_shared && \
-		touch app/__init__.py app/shared/__init__.py app/slack_bot/__init__.py && \
-		python3 -c 'from pathlib import Path; import zipfile; root=Path("."); out=Path("../../../terraform/modules/slack/slack_bot.zip"); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts]; z.close()' && \
-		cd ../../..
+	@rm -f $(LAMBDA_MOD)/*.zip terraform/modules/slack/slack_bot.zip
+	@PYTHONDONTWRITEBYTECODE=1 python3 scripts/package_lambdas.py $(LAMBDA_MOD) terraform/modules/slack
 	@echo "Lambdas packaged."
+
+build-gate:
+	@GATE_REPO=$$(cd $(TF_DIR) && terraform output -raw gate_repository_url) && \
+		aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $$(echo $$GATE_REPO | cut -d/ -f1) >/dev/null && \
+		docker build --platform linux/amd64 --provenance=false -f app/agents/gate/Dockerfile -t $$GATE_REPO:$(MCP_IMAGE_TAG) . && \
+		docker push $$GATE_REPO:$(MCP_IMAGE_TAG) && \
+		aws lambda update-function-code --function-name $(PROJECT)-gate-agent --image-uri $$GATE_REPO:$(MCP_IMAGE_TAG) --region $(REGION) --no-cli-pager >/dev/null
+	@echo "Gate image deployed: $(MCP_IMAGE_TAG)"
 
 build-mcp:
 	@MCP_REPO=$$(cd $(TF_DIR) && terraform output -raw mcp_server_repository_url) && \
