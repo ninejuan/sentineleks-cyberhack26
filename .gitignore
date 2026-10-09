@@ -48,3 +48,11 @@ slack/manifest.json
 *.zip
 mcp_server/_generated/
 .ruff_cache/
+
+# hackathon local secrets
+.env
+.env.*
+!.env.example
+.omo/
+.DS_Store
+.credentials

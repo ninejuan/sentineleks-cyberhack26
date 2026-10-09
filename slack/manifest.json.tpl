@@ -47,7 +47,11 @@
         "im:read",
         "im:write",
         "incoming-webhook",
-        "channels:history"
+        "channels:history",
+        "channels:read",
+        "chat:write.public",
+        "canvases:read",
+        "canvases:write"
       ]
     }
   },
