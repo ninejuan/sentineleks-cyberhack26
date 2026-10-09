@@ -3,3 +3,4 @@ project_name = "seks"
 region       = "us-east-1"
 
 endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict to team IPs in production
+slack_incident_channel       = "C0XXXXXXXXX" # Slack channel ID for approval cards + Canvas links

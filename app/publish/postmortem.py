@@ -159,7 +159,10 @@ class PostmortemPublisher:
         except SlackApiError as error:
             logger.warning("Canvas publish failed (%s); falling back to channel message", error)
             posted = slack_call(self._token, "chat.postMessage", {"channel": self._channel, "text": markdown[:39000]})
-            return {"mode": "message", "ts": posted.get("ts", ""), "fallback_reason": error.error}
+            result = {"mode": "message", "ts": posted.get("ts", ""), "fallback_reason": error.error}
+            if canvas_id:
+                result["canvas_id"] = canvas_id
+            return result
 
     def _permalink(self, canvas_id: str) -> str:
         try:
