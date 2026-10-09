@@ -5,6 +5,7 @@ solution -> AkashML Llama 3.3 70B (OpenAI-compatible) with Bedrock Terra as fall
 Every completion reports which provider/model actually answered so it can be audited.
 """
 
+import http.client
 import json
 import logging
 import time
@@ -72,12 +73,16 @@ class AkashClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                payload = json.loads(response.read())
+                raw = response.read()
         except urllib.error.HTTPError as error:
             detail = error.read().decode(errors="replace")[:300]
             raise AkashError(f"AkashML HTTP {error.code}: {detail}") from error
-        except (urllib.error.URLError, TimeoutError) as error:
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException, OSError) as error:
             raise AkashError(f"AkashML unreachable: {error}") from error
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, ValueError) as error:
+            raise AkashError(f"AkashML non-JSON response: {raw[:300]!r}") from error
         try:
             return payload["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as error:
@@ -101,7 +106,7 @@ class LlmRouter:
             fallback_reason = None
             try:
                 return self._akash_complete(system_prompt, user_message, max_tokens)
-            except (AkashError, KeyError) as error:
+            except AkashError as error:
                 fallback_reason = f"akash_unavailable: {error}"
                 logger.warning("Solution falling back to Bedrock: %s", error)
             return self._bedrock_complete(role, system_prompt, user_message, max_tokens, fallback_reason)
@@ -134,6 +139,9 @@ class LlmRouter:
         )
 
     def _build_akash(self) -> AkashClient:
-        api_key = resolve_secret("AKASHML_API_KEY", self._config.akash_secret_id, "api_key")
+        try:
+            api_key = resolve_secret("AKASHML_API_KEY", self._config.akash_secret_id, "api_key")
+        except Exception as error:
+            raise AkashError(f"akash credentials unavailable: {error}") from error
         self._akash = AkashClient(self._config.akash_base_url, api_key, self._config.akash_model_id)
         return self._akash

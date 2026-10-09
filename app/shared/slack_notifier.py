@@ -162,9 +162,18 @@ class SlackNotifier:
         source = incident.get("source", "UNKNOWN")
         reason = incident.get("error", {}).get("Cause", "Unknown failure")
         raw_alert = json.dumps(incident.get("raw_event", {}), indent=2, ensure_ascii=False)
+        incident_id = incident.get("incident_id")
+        severity = incident.get("severity")
 
         if len(raw_alert) > SLACK_MAX_TEXT_LENGTH:
             raw_alert = raw_alert[:SLACK_MAX_TEXT_LENGTH] + "\n..."
+
+        fields = [{"type": "mrkdwn", "text": f"*Source:* {source}"}]
+        if incident_id:
+            fields.append({"type": "mrkdwn", "text": f"*Incident:* `{incident_id}`"})
+        if severity:
+            fields.append({"type": "mrkdwn", "text": f"*Severity:* {severity} {severity_emoji(severity)}"})
+        fields.append({"type": "mrkdwn", "text": "*Mode:* DEGRADED"})
 
         return [
             {
@@ -173,10 +182,7 @@ class SlackNotifier:
             },
             {
                 "type": "section",
-                "fields": [
-                    {"type": "mrkdwn", "text": f"*Source:* {source}"},
-                    {"type": "mrkdwn", "text": "*Mode:* DEGRADED"},
-                ],
+                "fields": fields,
             },
             {
                 "type": "section",

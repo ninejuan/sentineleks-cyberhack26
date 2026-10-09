@@ -139,7 +139,8 @@ def _post(config: Config, blocks: list[dict]) -> None:
 
     secret = get_secret(f"{config.project}/slack/bot-token")
     token, channel = secret.get("token", ""), config.slack_incident_channel
-    if token and channel:
+    is_bot_api_call = bool(token and channel)
+    if is_bot_api_call:
         req = Request(
             "https://slack.com/api/chat.postMessage",
             data=json.dumps({"channel": channel, "blocks": blocks, "text": "SEKS approval required"}).encode(),
@@ -154,4 +155,9 @@ def _post(config: Config, blocks: list[dict]) -> None:
             webhook_url, data=json.dumps({"blocks": blocks}).encode(), headers={"Content-Type": "application/json"}
         )
     with urlopen(req, timeout=10) as resp:  # noqa: S310
+        body = resp.read()
+        if is_bot_api_call:
+            result = json.loads(body.decode())
+            if not result.get("ok"):
+                raise RuntimeError(f"Slack chat.postMessage failed: {result.get('error')}")
         logger.info("Approval request sent to Slack: %s", resp.status)
