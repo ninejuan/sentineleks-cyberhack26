@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    seks.juany.dev/scenario: crypto-mining
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratum-sink
+  namespace: demo
+  labels:
+    app: stratum-sink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stratum-sink
+  template:
+    metadata:
+      labels:
+        app: stratum-sink
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+        - name: sink
+          image: public.ecr.aws/docker/library/busybox:1.36
+          command: ["sh", "-c", "nc -lk -p 3333 -e cat"]
+          ports:
+            - containerPort: 3333
+          resources:
+            limits:
+              memory: 32Mi
+              cpu: 50m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stratum-sink
+  namespace: demo
+spec:
+  selector:
+    app: stratum-sink
+  ports:
+    - port: 3333
+      targetPort: 3333
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-worker
+  namespace: demo
+  labels:
+    app: ledger-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ledger-worker
+  template:
+    metadata:
+      labels:
+        app: ledger-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+        - name: worker
+          image: public.ecr.aws/docker/library/busybox:1.36
+          command: ["sh", "-c", "while true; do sleep 30; done"]
+          resources:
+            limits:
+              memory: 32Mi
+              cpu: 50m
