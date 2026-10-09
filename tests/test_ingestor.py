@@ -117,3 +117,25 @@ def test_lambda_handler_does_not_retain_non_tetragon_event(aws_mocks, context, m
     table = dynamodb_resource.Table.return_value
     retained = [call for call in table.put_item.call_args_list if call.kwargs.get("Item", {}).get("pod_uid")]
     assert retained == []
+
+
+def test_falco_and_tetragon_on_same_pod_share_dedup_key():
+    from app.ingestor.handler import _dedup_key
+
+    falco = {
+        "rule": "Crypto mining process detected",
+        "output_fields": {"k8s.pod.name": "ledger-1", "k8s.ns.name": "demo"},
+    }
+    tetragon = {
+        "process_kprobe": {
+            "policy_name": "detect-cryptominer-egress",
+            "process": {"pod": {"name": "ledger-1", "namespace": "demo"}},
+        }
+    }
+    other_pod = {
+        "rule": "Crypto mining process detected",
+        "output_fields": {"k8s.pod.name": "ledger-2", "k8s.ns.name": "demo"},
+    }
+
+    assert _dedup_key(falco, "falco") == _dedup_key(tetragon, "tetragon")
+    assert _dedup_key(falco, "falco") != _dedup_key(other_pod, "falco")

@@ -156,7 +156,9 @@ def _dedup_key(event: dict, source: str) -> str:
         ns = ""
 
     window = int(time.time()) // DEDUP_WINDOW_SECONDS
-    raw = f"{source}|{policy}|{ns}|{pod_name}|{window}"
+    # One attack on one pod = one incident: Falco and Tetragon alerts for the same workload share a key.
+    # Every event still reaches ClickHouse before dedup, so Triage correlation sees both sensors.
+    raw = f"workload|{ns}|{pod_name}|{window}" if pod_name else f"{source}|{policy}|{window}"
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
