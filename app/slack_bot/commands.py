@@ -199,6 +199,9 @@ def _split_id_and_rest(text: str) -> tuple[str, str]:
     return (parts[0], parts[1] if len(parts) > 1 else "") if parts else ("", "")
 
 
+_REMEDIATION_ELIGIBLE_STATUSES = ["approved", "awaiting_approval", "triaged"]
+
+
 def _remediate_response(config: Config, incident_id: str) -> dict:
     if not incident_id:
         return blocks_response(
@@ -221,49 +224,39 @@ def _remediate_response(config: Config, incident_id: str) -> dict:
             ephemeral=True,
         )
 
-    task_token = incident.get("task_token", "")
-
-    if task_token:
-        try:
-            import boto3
-
-            sfn = boto3.client("stepfunctions")
-            sfn.send_task_success(
-                taskToken=task_token,
-                output=json.dumps(
-                    {"decision": "approved", "approved_by": "manual_remediate", "source": "/seks remediate"}
-                ),
-            )
-            store.update_incident(incident_id, {"status": "remediation_approved"})
-            return blocks_response(
-                [
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": f"✅ Remediation approved for `{incident_id}`"},
+    gate_passed = incident.get("gate", {}).get("passed") is True
+    approved_plan = incident.get("approved_plan")
+    if not gate_passed or not approved_plan:
+        return blocks_response(
+            [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"❌ No gate-verified plan for `{incident_id}`; "
+                        "remediation must go through the pipeline",
                     },
-                    {
-                        "type": "context",
-                        "elements": [{"type": "mrkdwn", "text": "Step Functions pipeline will execute remediation."}],
-                    },
-                ]
-            )
-        except Exception as error:
-            logger.warning("SendTaskSuccess failed for %s: %s", incident_id, error)
-            return _invoke_remediation_directly(config, incident_id, incident)
-    else:
-        return _invoke_remediation_directly(config, incident_id, incident)
+                }
+            ],
+            ephemeral=True,
+        )
+
+    if not store.transition(incident_id, _REMEDIATION_ELIGIBLE_STATUSES, "remediation_triggered"):
+        return blocks_response(
+            [{"type": "section", "text": {"type": "mrkdwn", "text": f"❌ Incident `{incident_id}` already handled."}}],
+            ephemeral=True,
+        )
+
+    return _invoke_remediation_lambda(config, incident_id, incident, approved_plan)
 
 
-def _invoke_remediation_directly(config: Config, incident_id: str, incident: dict) -> dict:
+def _invoke_remediation_lambda(config: Config, incident_id: str, incident: dict, approved_plan: dict) -> dict:
     try:
-        import boto3
-
         lambda_client = boto3.client("lambda")
         payload = json.dumps(
             {
-                "incident_id": incident_id,
-                "summary": incident,
-                "source": "manual_remediate",
+                "summary": {"body": {"incident_id": incident_id, "affected": incident.get("affected", {})}},
+                "gate": {"body": {"passed": True, "approved_plan": approved_plan}},
             },
             default=str,
         )
@@ -272,23 +265,20 @@ def _invoke_remediation_directly(config: Config, incident_id: str, incident: dic
             InvocationType="Event",
             Payload=payload.encode(),
         )
-        from app.shared.store import IncidentStore
-
-        IncidentStore(config).update_incident(incident_id, {"status": "remediation_triggered"})
         return blocks_response(
             [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"⚡ Remediation triggered directly for `{incident_id}`"},
+                    "text": {"type": "mrkdwn", "text": f"⚡ Remediation triggered for `{incident_id}`"},
                 },
                 {
                     "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": "Task token expired. Remediation Agent invoked directly."}],
+                    "elements": [{"type": "mrkdwn", "text": "Gate-verified plan sent to the Remediation Agent."}],
                 },
             ]
         )
     except Exception as error:
-        logger.warning("Direct remediation invoke failed for %s: %s", incident_id, error)
+        logger.warning("Remediation invoke failed for %s: %s", incident_id, error)
         return blocks_response(
             [{"type": "section", "text": {"type": "mrkdwn", "text": f"❌ Failed to trigger remediation: {error}"}}],
             ephemeral=True,

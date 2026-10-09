@@ -80,6 +80,25 @@ def test_senso_failure_degrades(wired, context):
     router.complete.assert_not_called()
 
 
+def test_plan_with_only_non_whitelisted_action_degrades(wired, context):
+    senso, router = wired
+    senso.search_scoped.return_value = GroundedAnswer(
+        query="q", answer="cordon node", citations=[Citation("cid-crypto", "Cryptomining", 0.9, "1. ...")]
+    )
+    plan = {
+        "runbook_id": "cryptomining",
+        "grounded": True,
+        "recommended_actions": [{"action": "drain_node", "target": "node-1", "namespace": ""}],
+    }
+    router.complete.return_value = Completion(json.dumps(plan), "akashml", "meta-llama/Llama-3.3-70B-Instruct", 900)
+
+    result = handler.lambda_handler(_event(), context)
+
+    assert result["degraded"] is True
+    assert result["reason"] == "no whitelisted actions in plan"
+    assert result["recommended_actions"] == []
+
+
 def test_model_declaring_insufficient_evidence_degrades(wired, context):
     senso, router = wired
     senso.search_scoped.return_value = GroundedAnswer(

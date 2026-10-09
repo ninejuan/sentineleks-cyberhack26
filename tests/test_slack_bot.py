@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import time
+from unittest.mock import MagicMock
 from urllib.parse import quote
 
 from app.slack_bot import handler
@@ -180,3 +181,79 @@ def test_lambda_handler_unknown_path_returns_not_found(aws_mocks, context):
     result = handler.lambda_handler(_signed_event("/slack/unknown", "{}"), context)
 
     assert result == {"statusCode": 404, "body": "Not found"}
+
+
+def _add_lambda_client(aws_mocks):
+    lambda_client = MagicMock()
+    aws_mocks["clients"]["lambda"] = lambda_client
+    return lambda_client
+
+
+def test_remediate_without_gate_does_not_invoke_lambda(aws_mocks, seed_incidents, context):
+    lambda_client = _add_lambda_client(aws_mocks)
+    seed_incidents({"incident_id": "inc-3", "status": "triaged", "severity": "P2"})
+
+    body = "command=%2Fseks&text=remediate+inc-3"
+    result = handler.lambda_handler(_signed_event("/slack/commands", body), context)
+
+    response_body = json.loads(result["body"])
+    blocks_text = json.dumps(response_body["blocks"])
+    assert "No gate-verified plan for" in blocks_text
+    assert "inc-3" in blocks_text
+    lambda_client.invoke.assert_not_called()
+
+
+def test_remediate_with_passed_gate_invokes_lambda_with_wrapped_payload(aws_mocks, seed_incidents, context):
+    lambda_client = _add_lambda_client(aws_mocks)
+    seed_incidents(
+        {
+            "incident_id": "inc-4",
+            "status": "triaged",
+            "severity": "P1",
+            "affected": {"pod": "pod-x", "namespace": "ns-a"},
+            "gate": {"passed": True},
+            "approved_plan": {"actions": ["cordon_node"]},
+        }
+    )
+
+    body = "command=%2Fseks&text=remediate+inc-4"
+    result = handler.lambda_handler(_signed_event("/slack/commands", body), context)
+
+    response_body = json.loads(result["body"])
+    blocks_text = json.dumps(response_body["blocks"])
+    assert "Remediation triggered for" in blocks_text
+    assert "inc-4" in blocks_text
+
+    lambda_client.invoke.assert_called_once()
+    call_kwargs = lambda_client.invoke.call_args.kwargs
+    assert call_kwargs["FunctionName"] == "test-seks-remediation-agent"
+    assert call_kwargs["InvocationType"] == "Event"
+    payload = json.loads(call_kwargs["Payload"])
+    assert payload["summary"]["body"] == {
+        "incident_id": "inc-4",
+        "affected": {"pod": "pod-x", "namespace": "ns-a"},
+    }
+    assert payload["gate"]["body"] == {"passed": True, "approved_plan": {"actions": ["cordon_node"]}}
+
+
+def test_remediate_second_call_reports_already_handled(aws_mocks, seed_incidents, context):
+    lambda_client = _add_lambda_client(aws_mocks)
+    seed_incidents(
+        {
+            "incident_id": "inc-5",
+            "status": "triaged",
+            "severity": "P1",
+            "gate": {"passed": True},
+            "approved_plan": {"actions": ["cordon_node"]},
+        }
+    )
+
+    body = "command=%2Fseks&text=remediate+inc-5"
+    first = handler.lambda_handler(_signed_event("/slack/commands", body), context)
+    second = handler.lambda_handler(_signed_event("/slack/commands", body), context)
+
+    first_text = json.dumps(json.loads(first["body"])["blocks"])
+    second_text = json.dumps(json.loads(second["body"])["blocks"])
+    assert "Remediation triggered for" in first_text
+    assert "already handled" in second_text
+    lambda_client.invoke.assert_called_once()

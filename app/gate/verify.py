@@ -72,6 +72,12 @@ def _is_destructive(call: dict) -> bool:
     return False
 
 
+def check_plan(tool_calls: list[dict]) -> list[Violation]:
+    if not tool_calls:
+        return [Violation("plan", "planner produced no tool calls")]
+    return []
+
+
 def check_citations(citations: list[dict], verified_ids: set[str]) -> list[Violation]:
     if not citations:
         return [Violation("citations", "solution has no citations; ungrounded recommendations go to a human")]
@@ -123,6 +129,7 @@ def verify(
     semgrep_passed: bool | None,
 ) -> GateVerdict:
     results = {
+        "plan": check_plan(tool_calls),
         "citations": check_citations(citations, verified_ids),
         "whitelist": check_whitelist(tool_calls),
         "protected_namespace": check_protected_namespaces(tool_calls),

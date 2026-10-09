@@ -349,6 +349,63 @@ def test_label_pod_not_blocked_even_without_checkpoint(monkeypatch, context):
     assert result["execution_log"][0]["result"]["status"] == "success"
 
 
+def test_approved_plan_blocked_destructive_after_checkpoint_failure_marks_failed(monkeypatch, context):
+    monkeypatch.setenv("INCIDENT_STORE_ENABLED", "false")
+    gate = {
+        "passed": True,
+        "approved_plan": [
+            {"tool": "checkpoint_pod", "args": {"pod_name": "pod-a", "namespace": "default"}},
+            {"tool": "delete_pod", "args": {"pod_name": "pod-a", "namespace": "default"}},
+        ],
+    }
+
+    def fake_execute(tool_name, _tool_input, *, incident_id=None):
+        return {"status": "failed", "action": tool_name, "error": "boom"}
+
+    with patch("app.agents.remediation.tools.execute_tool", side_effect=fake_execute):
+        result = handler.lambda_handler({"gate": {"body": gate}}, context)
+
+    tools_run = [e["tool"] for e in result["execution_log"]]
+    assert tools_run == ["checkpoint_pod", "delete_pod"]
+    assert result["execution_log"][0]["result"]["status"] == "failed"
+    assert result["execution_log"][1]["result"]["status"] == "blocked"
+    assert result["status"] == "failed"
+
+
+def test_approved_plan_all_success_marks_completed(monkeypatch, context):
+    monkeypatch.setenv("INCIDENT_STORE_ENABLED", "false")
+    gate = {
+        "passed": True,
+        "approved_plan": [
+            {"tool": "checkpoint_pod", "args": {"pod_name": "pod-a", "namespace": "default"}},
+            {"tool": "delete_pod", "args": {"pod_name": "pod-a", "namespace": "default"}},
+        ],
+    }
+
+    def fake_execute(tool_name, _tool_input, *, incident_id=None):
+        return {"status": "success", "action": tool_name}
+
+    with patch("app.agents.remediation.tools.execute_tool", side_effect=fake_execute):
+        result = handler.lambda_handler({"gate": {"body": gate}}, context)
+
+    assert result["status"] == "completed"
+    for entry in result["execution_log"]:
+        assert entry["result"]["status"] == "success"
+
+
+def test_approved_plan_empty_plan_with_gate_passed_marks_failed(monkeypatch, context):
+    monkeypatch.setenv("INCIDENT_STORE_ENABLED", "false")
+    gate = {"passed": True, "approved_plan": []}
+
+    with patch("app.agents.remediation.tools.execute_tool") as mock_exec:
+        result = handler.lambda_handler({"gate": {"body": gate}}, context)
+
+    mock_exec.assert_not_called()
+    assert result["execution_log"] == []
+    assert result["actions_taken"] == 0
+    assert result["status"] == "failed"
+
+
 def test_forensic_precondition_met_helper():
     assert handler._forensic_precondition_met([]) == ["checkpoint_pod"]
     assert handler._forensic_precondition_met([{"tool": "checkpoint_pod", "result": {"status": "failed"}}]) == [

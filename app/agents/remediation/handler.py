@@ -280,6 +280,24 @@ def lambda_handler(event: dict, context) -> dict:
     return result
 
 
+SUCCESS_EQUIVALENT_STATUSES = frozenset({"success", "unsupported"})
+
+
+def _execution_log_all_succeeded(execution_log: list[dict]) -> bool:
+    """True only if the plan ran at least one step and every result succeeded.
+
+    "unsupported" (checkpoint_container_experimental on an incapable node) counts
+    as success-equivalent per MCP experimental-tool contract; it is not a failure.
+    """
+    if not execution_log:
+        return False
+    for entry in execution_log:
+        result = entry.get("result", {})
+        if not isinstance(result, dict) or result.get("status") not in SUCCESS_EQUIVALENT_STATUSES:
+            return False
+    return True
+
+
 def _execute_approved_plan(gate: dict, incident_id: str | None) -> dict:
     """Execute exactly the plan the gate verified and the human approved. No LLM in the loop."""
     from app.gate.verify import ALLOWED_AUTOMATED_TOOLS
@@ -298,8 +316,9 @@ def _execute_approved_plan(gate: dict, incident_id: str | None) -> dict:
         else:
             result = _execute_tool(tool_name, tool_input, execution_log, incident_id=incident_id)
         execution_log.append({"tool": tool_name, "input": tool_input, "result": result})
+    status = "completed" if _execution_log_all_succeeded(execution_log) else "failed"
     return {
-        "status": "completed",
+        "status": status,
         "mode": "approved_plan",
         "execution_log": execution_log,
         "actions_taken": len(execution_log),
@@ -395,23 +414,28 @@ def _update_incident_status(config: Config, event: dict, result: dict) -> None:
         if isinstance(r, dict) and r.get("evidence_uri"):
             evidence_uris.append(r["evidence_uri"])
 
+    remediation_status = result.get("status", "unknown")
+    incident_status = "remediated" if remediation_status == "completed" else "remediation_failed"
+
     store = IncidentStore(config)
     store.update_incident(
         incident_id=incident_id,
         updates={
-            "status": "remediated" if result.get("status") == "completed" else result.get("status", "unknown"),
+            "status": incident_status,
             "actions_taken": [e["tool"] for e in execution_log if e.get("tool")],
             "actions_count": result.get("actions_taken", 0),
-            "remediation_status": result.get("status", "unknown"),
+            "remediation_status": remediation_status,
             "execution_log": execution_log,
             "evidence_uris": evidence_uris,
         },
     )
 
-    _notify_remediation_complete(config, incident_id, execution_log, evidence_uris)
+    _notify_remediation_complete(config, incident_id, execution_log, evidence_uris, remediation_status)
 
 
-def _notify_remediation_complete(config: Config, incident_id: str, execution_log: list, evidence_uris: list) -> None:
+def _notify_remediation_complete(
+    config: Config, incident_id: str, execution_log: list, evidence_uris: list, remediation_status: str = "unknown"
+) -> None:
     from urllib.request import Request, urlopen
 
     from app.shared.secrets import get_secret
@@ -424,7 +448,9 @@ def _notify_remediation_complete(config: Config, incident_id: str, execution_log
     succeeded = [e for e in execution_log if e.get("tool") and e.get("result", {}).get("status") == "success"]
     failed = [e for e in execution_log if e.get("tool") and e.get("result", {}).get("status") != "success"]
 
-    status_emoji = "✅" if not failed else "⚠️"
+    is_failed = remediation_status == "failed"
+    status_emoji = "❌" if is_failed else ("✅" if not failed else "⚠️")
+    header_text = "Remediation FAILED" if is_failed else "Remediation Complete"
     summary_text = f"{len(succeeded)} succeeded, {len(failed)} failed"
 
     tool_lines = []
@@ -443,7 +469,7 @@ def _notify_remediation_complete(config: Config, incident_id: str, execution_log
     blocks = [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"{status_emoji} Remediation Complete: {incident_id}"},
+            "text": {"type": "plain_text", "text": f"{status_emoji} {header_text}: {incident_id}"},
         },
         {
             "type": "section",
@@ -454,7 +480,7 @@ def _notify_remediation_complete(config: Config, incident_id: str, execution_log
     if evidence_text:
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": evidence_text}})
 
-    color = "#36a64f" if not failed else "#ff9900"
+    color = "#d93025" if is_failed else ("#36a64f" if not failed else "#ff9900")
     payload = json.dumps({"attachments": [{"color": color, "blocks": blocks}]}).encode()
     req = Request(webhook_url, data=payload, headers={"Content-Type": "application/json"})  # noqa: S310
     try:

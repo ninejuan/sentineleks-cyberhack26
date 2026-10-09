@@ -74,10 +74,15 @@ def lambda_handler(event: dict, context) -> dict:
     except json.JSONDecodeError:
         return _degraded("solution model returned non-JSON output", query, evidence.to_dict())
 
-    if not plan.get("grounded", True) or not plan.get("recommended_actions"):
+    if not plan.get("grounded", True):
         return _degraded(plan.get("reason", "model declared evidence insufficient"), query, evidence.to_dict())
 
-    plan["recommended_actions"] = [a for a in plan["recommended_actions"] if a.get("action") in ALLOWED_AUTOMATED_TOOLS]
+    plan["recommended_actions"] = [
+        a for a in plan.get("recommended_actions", []) if a.get("action") in ALLOWED_AUTOMATED_TOOLS
+    ]
+    if not plan["recommended_actions"]:
+        return _degraded("no whitelisted actions in plan", query, evidence.to_dict())
+
     plan.update(
         {
             "grounded": True,

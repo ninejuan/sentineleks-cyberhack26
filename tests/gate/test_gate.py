@@ -26,6 +26,13 @@ GOOD_PLAN = [
 CITATIONS = [{"content_id": "cid-1", "title": "Cryptomining"}]
 
 
+def test_empty_plan_fails():
+    verdict = verify(citations=CITATIONS, verified_ids={"cid-1"}, tool_calls=[], semgrep_passed=True)
+    assert not verdict.passed
+    assert verdict.checks["plan"] is False
+    assert any(v.check == "plan" for v in verdict.violations)
+
+
 def test_good_plan_passes_all_checks():
     verdict = verify(citations=CITATIONS, verified_ids={"cid-1"}, tool_calls=GOOD_PLAN, semgrep_passed=True)
     assert verdict.passed
