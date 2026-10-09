@@ -10,9 +10,9 @@ locals {
   admin_user_name = startswith(local.admin_principal, "arn:aws:iam::${local.account_id}:user/") ? trimprefix(local.admin_principal, "arn:aws:iam::${local.account_id}:user/") : ""
   admin_role_name = startswith(local.admin_principal, "arn:aws:iam::${local.account_id}:role/") ? trimprefix(local.admin_principal, "arn:aws:iam::${local.account_id}:role/") : ""
 
-  # Inference profile IDs for cross-region invocation
-  bedrock_fast_model_id  = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-  bedrock_smart_model_id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  # OpenAI GPT-5.6 on Bedrock (Converse API): Luna for summary/triage, Terra for solution/remediation/forensics
+  bedrock_fast_model_id  = "us.openai.gpt-5.6-luna"
+  bedrock_smart_model_id = "us.openai.gpt-5.6-terra"
 
   common_tags = {
     Environment = var.environment
