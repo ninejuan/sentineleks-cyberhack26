@@ -19,7 +19,7 @@ data:
 
     SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
     REGION = os.environ.get("AWS_REGION", "us-east-1")
-    POLICY_FILTER = os.environ.get("POLICY_FILTER", "detect-sensitive-file-access,detect-privilege-escalation,detect-container-escape")
+    POLICY_FILTER = os.environ.get("POLICY_FILTER", "detect-sensitive-file-access,detect-privilege-escalation,detect-container-escape,detect-cryptominer-egress")
     NAMESPACE_EXCLUDE = os.environ.get("NAMESPACE_EXCLUDE", "kube-system,monitoring,external-secrets,falco,tetragon,seks")
 
     sns = boto3.client("sns", region_name=REGION)

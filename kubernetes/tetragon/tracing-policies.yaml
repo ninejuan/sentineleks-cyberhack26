@@ -90,3 +90,28 @@ spec:
       selectors:
         - matchActions:
             - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: detect-cryptominer-egress
+spec:
+  kprobes:
+    - call: tcp_connect
+      syscall: false
+      args:
+        - index: 0
+          type: sock
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: DPort
+              values:
+                - "3333"
+                - "4444"
+                - "5555"
+                - "7777"
+                - "14444"
+                - "45700"
+          matchActions:
+            - action: Post

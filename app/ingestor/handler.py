@@ -9,6 +9,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 from app.shared.config import Config
+from app.shared.normalize import normalize, to_sensor_event
+from app.sink.clickhouse import SensorSink
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
@@ -45,6 +47,8 @@ def lambda_handler(event: dict, context) -> dict:
                 body = sns_message
 
         source = _detect_source(body)
+        normalized = normalize(body, tenant_id=config.tenant_id, cluster=config.eks_cluster_name)
+        sink_status = _sink(config, normalized)
 
         if source == "tetragon" and tetragon_table is not None:
             _retain_tetragon_event(tetragon_table, body)
@@ -53,13 +57,14 @@ def lambda_handler(event: dict, context) -> dict:
 
         if _is_duplicate(dedup_table, dedup_key):
             logger.info("Deduplicated event: %s", dedup_key[:80])
-            results.append({"source": source, "status": "deduplicated"})
+            results.append({"source": source, "status": "deduplicated", "sink": sink_status})
             continue
 
         execution_name = f"{source}-{datetime.now(tz=UTC).strftime('%Y%m%d-%H%M%S-%f')}"
 
         workflow_input = {
             "raw_event": body,
+            "normalized": normalized,
             "source": source,
             "received_at": datetime.now(tz=UTC).isoformat(),
         }
@@ -71,9 +76,29 @@ def lambda_handler(event: dict, context) -> dict:
         )
 
         logger.info("Started execution %s for %s event", response["executionArn"], source)
-        results.append({"source": source, "execution_arn": response["executionArn"], "status": "started"})
+        results.append(
+            {"source": source, "execution_arn": response["executionArn"], "status": "started", "sink": sink_status}
+        )
 
     return {"processed": len(results), "executions": results}
+
+
+_sink_cache: dict[str, SensorSink] = {}
+
+
+def _sink(config: Config, normalized: dict) -> str:
+    """Every sensor event lands in ClickHouse (even ones later deduplicated) so correlation sees them all."""
+    if not normalized.get("workload") or os.environ.get("SENSOR_SINK_ENABLED", "true").lower() != "true":
+        return "skipped"
+    try:
+        if "sink" not in _sink_cache:
+            _sink_cache["sink"] = SensorSink.from_config(config)
+        _sink_cache["sink"].insert([to_sensor_event(normalized)])
+        return "stored"
+    except Exception as error:
+        logger.warning("ClickHouse sink failed: %s", error)
+        _sink_cache.pop("sink", None)
+        return "failed"
 
 
 def _retain_tetragon_event(table, event: dict) -> None:
