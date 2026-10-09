@@ -206,6 +206,17 @@ SFN 흐름 (`terraform/modules/lambda/main.tf:224-480`):
 - Slack 재설치 후 scope 확인: `chat:write`, `chat:write.public`, `canvases:write/read`, `channels:read` 등 12개 정상
 - GitHub: `ninejuan/sentineleks-cyberhack26` (public, origin 설정됨, main에 README 커밋 1개)
 
+## 5.8 모델 교체와 이름 변경 (13:30)
+- **LLM: OpenAI GPT-5.6을 Bedrock으로 호출** (OpenAI 키 없이 기존 IAM 경로 사용). us-east-1에서 `us.openai.gpt-5.6-{luna,terra,sol}` 모두 Converse와 tool-use로 동작 확인
+  - Summary·Triage → **Luna** (가장 저렴, 1초 내외)
+  - Solution·Remediation·ForensicSynthesis → **Terra** (지연 0.6~1초, tool-use 정확, Sol 대비 비용 약 절반)
+  - Sol을 뺀 이유: Terra로 실제 remediation 루프를 돌렸을 때 checkpoint_pod → capture_hubble_flows → label_pod 순서를 그대로 지켰음. Sol은 비용 2배·지연 2배에 데모상 이득이 없음
+  - `app/shared/bedrock.py`를 `invoke_model`(Anthropic 포맷)에서 **Converse API**로 교체. 에이전트 쪽 계약({stop_reason, content:[{type...}]})은 유지해서 handler는 수정 없음
+- AkashML(Llama 3.3 70B)은 Solution 단계 라우팅으로 별도 추가 예정 (Akash 상금)
+- **프로젝트 이름 `atdr` → `seks`**: 코드·인프라·매니페스트·테스트·문서 전부 변경. tfstate 버킷은 `seks-tfstate`(us-east-1)이고 **아직 없음** → `./init.sh` 실행 필요
+- 커밋: `Import ATDR base` → `Move region to us-east-1` → `Add Slack canvas scopes` → `Add hackathon notes` → `Use GPT-5.6 on Bedrock` → `Rename project to seks`
+- 기존 ruff 오류 11건(PLR0917, ISC004)은 ATDR 원본에도 있던 것이고 이번 변경과 무관
+
 ## 6. 현장에서 확인할 것
 - [ ] AWS 계정 리전과 Bedrock Claude 4.5 모델 활성화 여부
 - [ ] Slack 워크스페이스 플랜 (Canvas API)
